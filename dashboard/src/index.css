@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  background-color: #ffffff;
+  color: #000000;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #e5e5e5;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #d4d4d4;
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+  .animate-slide-down {
+    animation: slideDown 0.2s ease-out;
+  }
+  .animate-book-page {
+    animation: bookOpen 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    transform-origin: left center;
+  }
+  .animate-book-modal {
+    animation: bookModalOpen 0.35s ease-out;
+    transform-origin: top center;
+  }
+  .animate-book-button {
+    animation: buttonBook 0.35s ease-out;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; max-height: 0; }
+  to { opacity: 1; max-height: 500px; }
+}
+
+@keyframes bookOpen {
+  from {
+    opacity: 0;
+    transform: perspective(900px) rotateY(-18deg) translateX(-24px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(900px) rotateY(0deg) translateX(0) scale(1);
+  }
+}
+
+@keyframes bookModalOpen {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) rotateX(22deg) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotateX(0deg) scale(1);
+  }
+}
+
+@keyframes buttonBook {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.98);
+  }
+}
