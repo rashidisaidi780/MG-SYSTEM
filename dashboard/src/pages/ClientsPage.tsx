@@ -9,6 +9,7 @@ interface Client {
   email: string;
   phone: string;
   otherPhone: string;
+  tinNumber: string;
   status: 'Active' | 'Inactive' | 'Pending';
   date: string;
 }
@@ -22,6 +23,7 @@ const initialClients: Client[] = [
     email: 'john@acme.co',
     phone: '+1 555-0142',
     otherPhone: '+1 555-0143',
+    tinNumber: 'TIN-783421',
     status: 'Active',
     date: '2026-07-10',
   },
@@ -33,6 +35,7 @@ const initialClients: Client[] = [
     email: 'emma@nimbus.io',
     phone: '+1 555-0188',
     otherPhone: '+1 555-0189',
+    tinNumber: 'TIN-684212',
     status: 'Active',
     date: '2026-06-24',
   },
@@ -44,6 +47,7 @@ const initialClients: Client[] = [
     email: 'david@lumen.studio',
     phone: '+1 555-0203',
     otherPhone: '+1 555-0204',
+    tinNumber: 'TIN-521374',
     status: 'Pending',
     date: '2026-08-01',
   },
@@ -55,6 +59,7 @@ const initialClients: Client[] = [
     email: 'sophie@pulse.media',
     phone: '+1 555-0312',
     otherPhone: '+1 555-0313',
+    tinNumber: 'TIN-847193',
     status: 'Inactive',
     date: '2026-05-14',
   },
@@ -68,6 +73,7 @@ const emptyClient: Client = {
   email: '',
   phone: '',
   otherPhone: '',
+  tinNumber: '',
   status: 'Active',
   date: '',
 };
@@ -94,7 +100,14 @@ export default function ClientsPage() {
   };
 
   const handleSave = () => {
-    if (!formClient.name.trim() || !formClient.company.trim() || !formClient.email.trim() || !formClient.phone.trim() || !formClient.date) {
+    if (
+      !formClient.name.trim() ||
+      !formClient.company.trim() ||
+      !formClient.email.trim() ||
+      !formClient.phone.trim() ||
+      !formClient.tinNumber.trim() ||
+      !formClient.date
+    ) {
       return;
     }
 
@@ -260,6 +273,15 @@ export default function ClientsPage() {
                   onChange={(event) => handleChange('otherPhone', event.target.value)}
                   className="w-full rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
                   placeholder="Optional alternate phone"
+                />
+              </label>
+              <label className="space-y-2 text-sm font-medium text-neutral-700">
+                TIN number
+                <input
+                  value={formClient.tinNumber}
+                  onChange={(event) => handleChange('tinNumber', event.target.value)}
+                  className="w-full rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
+                  placeholder="Enter TIN number"
                 />
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
