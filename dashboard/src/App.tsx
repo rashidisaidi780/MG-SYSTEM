@@ -4,6 +4,7 @@ import Topbar from '@/components/Topbar';
 import DashboardPage from '@/pages/DashboardPage';
 import ProjectsPage from '@/pages/ProjectsPage';
 import ClientsPage from '@/pages/ClientsPage';
+import UsersPage from '@/pages/UsersPage';
 import WorkersPage from '@/pages/WorkersPage';
 import InvoicesPage from '@/pages/InvoicesPage';
 import BookingsPage from '@/pages/BookingsPage';
@@ -12,6 +13,7 @@ const pageMeta: Record<PageId, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'Company overview & key metrics' },
   projects: { title: 'Projects', subtitle: 'Manage all company projects' },
   clients: { title: 'Clients', subtitle: 'Your client directory' },
+  users: { title: 'Users', subtitle: 'User accounts & system roles' },
   workers: { title: 'Workers', subtitle: 'Team members & staff' },
   invoices: { title: 'Invoices', subtitle: 'Billing & financial records' },
   bookings: { title: 'Booking Orders', subtitle: 'Service bookings & appointments' },
@@ -30,6 +32,7 @@ export default function App() {
           {page === 'dashboard' && <DashboardPage />}
           {page === 'projects' && <ProjectsPage />}
           {page === 'clients' && <ClientsPage />}
+          {page === 'users' && <UsersPage />}
           {page === 'workers' && <WorkersPage />}
           {page === 'invoices' && <InvoicesPage />}
           {page === 'bookings' && <BookingsPage />}

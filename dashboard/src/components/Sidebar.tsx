@@ -15,6 +15,7 @@ export type PageId =
   | 'dashboard'
   | 'projects'
   | 'clients'
+  | 'users'
   | 'workers'
   | 'invoices'
   | 'bookings';
@@ -39,6 +40,7 @@ const NAV: NavGroup[] = [
     children: [
       { id: 'projects', label: 'Projects', icon: FolderKanban },
       { id: 'clients', label: 'Clients', icon: Users },
+      { id: 'users', label: 'Users', icon: UserCog },
     ],
   },
   {
