@@ -1,4 +1,4 @@
-﻿import { useState, type MouseEvent } from 'react';
+﻿import { useState, useMemo, type MouseEvent } from 'react';
 import { Plus, Download, MoreHorizontal, Edit3, Eye, Trash2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
@@ -113,7 +113,7 @@ const statusStyles: Record<Invoice['status'], string> = {
   Canceled: 'bg-gray-50 text-gray-700',
 };
 
-export default function InvoicesPage() {
+export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null);
@@ -122,6 +122,17 @@ export default function InvoicesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [pendingDeleteInvoiceId, setPendingDeleteInvoiceId] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  const filteredInvoices = useMemo(() => {
+    if (!searchQuery.trim()) return invoices;
+    const query = searchQuery.toLowerCase();
+    return invoices.filter(
+      (invoice) =>
+        invoice.id.toLowerCase().includes(query) ||
+        invoice.client.toLowerCase().includes(query) ||
+        invoice.status.toLowerCase().includes(query),
+    );
+  }, [invoices, searchQuery]);
 
   const [createForm, setCreateForm] = useState({
     invoiceId: '',
@@ -294,7 +305,7 @@ export default function InvoicesPage() {
   return (
     <div className="p-8 animate-fade-in space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-neutral-400 font-medium">{invoices.length} invoices</p>
+        <p className="text-sm text-neutral-400 font-medium">{filteredInvoices.length} invoices</p>
         <div className="flex items-center gap-2">
           <button className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-neutral-200 text-sm font-medium hover:bg-neutral-50 transition-colors">
             <Download size={15} /> Export
@@ -320,7 +331,7 @@ export default function InvoicesPage() {
               </tr>
             </thead>
             <tbody>
-              {invoices.map((inv) => (
+              {filteredInvoices.map((inv) => (
                 <tr key={inv.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50 transition-colors">
                   <td className="px-5 py-4 font-semibold">{inv.id}</td>
                   <td className="px-5 py-4 text-neutral-600">{inv.client}</td>

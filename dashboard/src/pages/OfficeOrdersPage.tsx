@@ -1,4 +1,5 @@
 import { Plus, ClipboardList, Calendar, User } from 'lucide-react';
+import { useMemo } from 'react';
 
 const officeOrders = [
   { id: 'OO-001', department: 'HR', subject: 'New employee setup', date: 'Aug 15, 2026', status: 'Pending' },
@@ -14,18 +15,29 @@ const statusStyles: Record<string, string> = {
   Completed: 'bg-neutral-100 text-neutral-600',
 };
 
-export default function OfficeOrdersPage() {
+export default function OfficeOrdersPage({ searchQuery = '' }: { searchQuery?: string }) {
+  const filteredOrders = useMemo(() => {
+    if (!searchQuery.trim()) return officeOrders;
+    const query = searchQuery.toLowerCase();
+    return officeOrders.filter(
+      (order) =>
+        order.id.toLowerCase().includes(query) ||
+        order.subject.toLowerCase().includes(query) ||
+        order.department.toLowerCase().includes(query) ||
+        order.status.toLowerCase().includes(query),
+    );
+  }, [searchQuery]);
   return (
     <div className="p-8 animate-fade-in">
       <div className="flex items-center justify-between mb-6">
-        <p className="text-sm text-neutral-400 font-medium">{officeOrders.length} office orders</p>
+        <p className="text-sm text-neutral-400 font-medium">{filteredOrders.length} office orders</p>
         <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-black text-white text-sm font-medium hover:bg-neutral-800 transition-colors">
           <Plus size={16} /> New Office Order
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {officeOrders.map((order) => (
+        {filteredOrders.map((order) => (
           <div
             key={order.id}
             className="bg-white border border-neutral-200 rounded-xl p-5 hover:shadow-sm transition-all hover:-translate-y-0.5"

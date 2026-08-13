@@ -79,7 +79,7 @@ const monthlyStats = [
 
 const maxChartValue = Math.max(...monthlyStats.flatMap((stat) => [stat.projects, stat.clients]));
 
-export default function DashboardPage() {
+export default function DashboardPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [activeMonth, setActiveMonth] = useState<string | null>(null);
 
   return (

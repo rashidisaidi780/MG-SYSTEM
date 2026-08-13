@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Mail, Key, Edit3, Trash2, ShieldCheck } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
@@ -124,7 +124,7 @@ const emptyUser: UserAccount = {
   },
 };
 
-export default function UsersPage() {
+export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [users, setUsers] = useState<UserAccount[]>(initialUsers);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
@@ -135,6 +135,16 @@ export default function UsersPage() {
   const [pendingDeleteUserId, setPendingDeleteUserId] = useState<string | null>(null);
   const { showToast } = useToast();
 
+  const filteredUsers = useMemo(() => {
+    if (!searchQuery.trim()) return users;
+    const query = searchQuery.toLowerCase();
+    return users.filter(
+      (user) =>
+        user.username.toLowerCase().includes(query) ||
+        user.email.toLowerCase().includes(query) ||
+        user.role.toLowerCase().includes(query),
+    );
+  }, [users, searchQuery]);
   const openForm = (mode: 'add' | 'edit', user?: UserAccount) => {
     setFormMode(mode);
     setFormUser(user ? user : emptyUser);
@@ -208,7 +218,7 @@ export default function UsersPage() {
     <div className="p-8 animate-fade-in">
       <div className="flex items-center justify-between mb-6 gap-4">
         <div>
-          <p className="text-sm text-neutral-400 font-medium">{users.length} users total</p>
+          <p className="text-sm text-neutral-400 font-medium">{filteredUsers.length} users total</p>
           <h2 className="text-2xl font-semibold">User management</h2>
         </div>
         <button
@@ -220,7 +230,7 @@ export default function UsersPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        {users.map((user) => (
+        {filteredUsers.map((user) => (
           <div
             key={user.id}
             className="bg-white border border-neutral-200 rounded-[28px] p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"

@@ -16,7 +16,7 @@ const initial: Notification[] = [
   { id: 'sys-2', title: 'Activity feed enabled', message: 'All system actions are now tracked here.', time: 'now', read: true },
 ];
 
-export default function NotificationsPage({ refreshKey }: { refreshKey?: number }) {
+export default function NotificationsPage({ refreshKey, searchQuery = '' }: { refreshKey?: number; searchQuery?: string }) {
   const [items, setItems] = useState<Notification[]>(initial);
   const [confirmDelete, setConfirmDelete] = useState<{ kind: 'all' | 'one'; id?: string } | null>(null);
 

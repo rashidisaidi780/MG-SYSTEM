@@ -1,4 +1,5 @@
 import { Plus, MoreHorizontal, Calendar, Clock, User } from 'lucide-react';
+import { useMemo } from 'react';
 
 const bookings = [
   { id: 'BO-118', client: 'Acme Co.', service: 'Consultation', date: 'Aug 15, 2026', time: '10:00 AM', assignee: 'Sarah Chen', status: 'Confirmed' },
@@ -18,18 +19,29 @@ const statusStyles: Record<string, string> = {
   Cancelled: 'bg-red-50 text-red-700',
 };
 
-export default function BookingsPage() {
+export default function BookingsPage({ searchQuery = '' }: { searchQuery?: string }) {
+  const filteredBookings = useMemo(() => {
+    if (!searchQuery.trim()) return bookings;
+    const query = searchQuery.toLowerCase();
+    return bookings.filter(
+      (booking) =>
+        booking.id.toLowerCase().includes(query) ||
+        booking.client.toLowerCase().includes(query) ||
+        booking.service.toLowerCase().includes(query) ||
+        booking.assignee.toLowerCase().includes(query),
+    );
+  }, [searchQuery]);
   return (
     <div className="p-8 animate-fade-in">
       <div className="flex items-center justify-between mb-6">
-        <p className="text-sm text-neutral-400 font-medium">{bookings.length} booking orders</p>
+        <p className="text-sm text-neutral-400 font-medium">{filteredBookings.length} booking orders</p>
         <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-black text-white text-sm font-medium hover:bg-neutral-800 transition-colors">
           <Plus size={16} /> New Booking
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {bookings.map((b) => (
+        {filteredBookings.map((b) => (
           <div
             key={b.id}
             className="bg-white border border-neutral-200 rounded-xl p-5 hover:shadow-sm transition-all hover:-translate-y-0.5"

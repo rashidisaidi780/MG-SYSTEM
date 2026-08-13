@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, MoreHorizontal, Mail, Phone, Edit3, Trash2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
@@ -101,7 +101,7 @@ const calculateEndDate = (startDate: string, durationValue: number, durationUnit
   return date.toISOString().slice(0, 10);
 };
 
-export default function WorkersPage() {
+export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [workers, setWorkers] = useState<Worker[]>(initialWorkers);
   const [formOpen, setFormOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -110,6 +110,18 @@ export default function WorkersPage() {
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
   const [pendingDeleteWorkerId, setPendingDeleteWorkerId] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  const filteredWorkers = useMemo(() => {
+    if (!searchQuery.trim()) return workers;
+    const query = searchQuery.toLowerCase();
+    return workers.filter(
+      (worker) =>
+        worker.name.toLowerCase().includes(query) ||
+        worker.tinNumber.toLowerCase().includes(query) ||
+        worker.email.toLowerCase().includes(query) ||
+        worker.phone.toLowerCase().includes(query),
+    );
+  }, [workers, searchQuery]);
 
   const openForm = (mode: 'add' | 'edit', worker?: Worker) => {
     setFormMode(mode);
@@ -189,7 +201,7 @@ export default function WorkersPage() {
     <div className="p-8 animate-fade-in">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <p className="text-sm text-neutral-400 font-medium">{workers.length} workers</p>
+          <p className="text-sm text-neutral-400 font-medium">{filteredWorkers.length} workers</p>
           <h2 className="text-2xl font-semibold">Team members</h2>
         </div>
         <button
@@ -201,7 +213,7 @@ export default function WorkersPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        {workers.map((worker) => (
+        {filteredWorkers.map((worker) => (
           <div
             key={worker.id}
             className="bg-white border border-neutral-200 rounded-3xl p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"

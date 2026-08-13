@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, MoreHorizontal, Filter, Edit3, Trash2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
@@ -91,7 +91,7 @@ const emptyProject: Project = {
   description: '',
 };
 
-export default function ProjectsPage() {
+export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [projectList, setProjectList] = useState<Project[]>(initialProjects);
   const [formOpen, setFormOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -100,6 +100,17 @@ export default function ProjectsPage() {
   const [formProject, setFormProject] = useState<Project>(emptyProject);
   const [pendingDeleteProjectId, setPendingDeleteProjectId] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  const filteredProjects = useMemo(() => {
+    if (!searchQuery.trim()) return projectList;
+    const query = searchQuery.toLowerCase();
+    return projectList.filter(
+      (project) =>
+        project.name.toLowerCase().includes(query) ||
+        project.budget.toLowerCase().includes(query) ||
+        project.lead.toLowerCase().includes(query),
+    );
+  }, [projectList, searchQuery]);
 
   const selectedClientName = (clientId: string) => clients.find((client) => client.id === clientId)?.name ?? '';
 
@@ -170,7 +181,7 @@ export default function ProjectsPage() {
     <div className="p-8 animate-fade-in">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <p className="text-sm text-neutral-400 font-medium">{projectList.length} projects total</p>
+          <p className="text-sm text-neutral-400 font-medium">{filteredProjects.length} projects total</p>
           <h2 className="text-2xl font-semibold">Project portfolio</h2>
         </div>
         <div className="flex items-center gap-3">
@@ -199,7 +210,7 @@ export default function ProjectsPage() {
               </tr>
             </thead>
             <tbody>
-              {projectList.map((project) => (
+              {filteredProjects.map((project) => (
                 <tr
                   key={project.id}
                   className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50 transition-colors cursor-pointer"

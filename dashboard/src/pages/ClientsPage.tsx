@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Mail, Phone, Edit3, Trash2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
@@ -81,12 +81,25 @@ const emptyClient: Client = {
   date: '',
 };
 
-export default function ClientsPage() {
+export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [clients, setClients] = useState<Client[]>(initialClients);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [formClient, setFormClient] = useState<Client>(emptyClient);
-  const [pendingDeleteClientId, setPendingDeleteClientId] = useState<string | null>(null);  const { showToast } = useToast();
+  const [pendingDeleteClientId, setPendingDeleteClientId] = useState<string | null>(null);
+  const { showToast } = useToast();
+
+  const filteredClients = useMemo(() => {
+    if (!searchQuery.trim()) return clients;
+    const query = searchQuery.toLowerCase();
+    return clients.filter(
+      (client) =>
+        client.name.toLowerCase().includes(query) ||
+        client.company.toLowerCase().includes(query) ||
+        client.email.toLowerCase().includes(query) ||
+        client.phone.toLowerCase().includes(query),
+    );
+  }, [clients, searchQuery]);
   const openForm = (mode: 'add' | 'edit', client?: Client) => {
     setFormMode(mode);
     setFormClient(client ? client : emptyClient);
@@ -145,7 +158,7 @@ export default function ClientsPage() {
     <div className="p-8 animate-fade-in">
       <div className="flex items-center justify-between mb-6 gap-4">
         <div>
-          <p className="text-sm text-neutral-400 font-medium">{clients.length} clients total</p>
+          <p className="text-sm text-neutral-400 font-medium">{filteredClients.length} clients total</p>
           <h2 className="text-2xl font-semibold">Client management</h2>
         </div>
         <button
@@ -157,7 +170,7 @@ export default function ClientsPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-        {clients.map((client) => (
+        {filteredClients.map((client) => (
           <div
             key={client.id}
             className="bg-white border border-neutral-200 rounded-[28px] p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"

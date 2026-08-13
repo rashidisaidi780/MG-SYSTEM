@@ -26,7 +26,7 @@ const emptyForm = {
   durationUnit: 'day' as 'day' | 'week' | 'month' | 'year',
 };
 
-export default function EventsPage() {
+export default function EventsPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [posts, setPosts] = useState<EventPost[]>(initialPosts);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -42,9 +42,22 @@ export default function EventsPage() {
     [posts],
   );
 
+  const filteredPosts = useMemo(
+    () => {
+      if (!searchQuery.trim()) return visiblePosts;
+      const query = searchQuery.toLowerCase();
+      return visiblePosts.filter(
+        (post) =>
+          post.title.toLowerCase().includes(query) ||
+          post.description.toLowerCase().includes(query),
+      );
+    },
+    [visiblePosts, searchQuery],
+  );
+
   const totalNewPosts = useMemo(
-    () => visiblePosts.filter((post) => post.isNew).length,
-    [visiblePosts],
+    () => filteredPosts.filter((post) => post.isNew).length,
+    [filteredPosts],
   );
 
   const openCreate = () => {
@@ -175,7 +188,7 @@ export default function EventsPage() {
       </div>
 
       <div className="grid gap-5 xl:grid-cols-4 lg:grid-cols-2">
-        {visiblePosts.map((post) => (
+        {filteredPosts.map((post) => (
           <article
             key={post.id}
             className="overflow-hidden rounded-[28px] border border-neutral-200 bg-white shadow-sm"

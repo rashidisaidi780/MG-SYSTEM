@@ -13,6 +13,7 @@ import {
   LogOut,
   Activity,
 } from 'lucide-react';
+import logoImg from '@/assets/logo.jpeg';
 
 export type PageId =
   | 'dashboard'
@@ -92,9 +93,7 @@ export default function Sidebar({ active, onNavigate, onLogoutRequest }: Sidebar
     <aside className="w-64 shrink-0 border-r border-neutral-200 bg-white flex flex-col h-screen sticky top-0">
       {/* Brand */}
       <div className="h-16 flex items-center gap-3 px-6 border-b border-neutral-200">
-        <div className="w-9 h-9 rounded-lg bg-black flex items-center justify-center">
-          <span className="text-white font-bold text-sm tracking-tight">MG</span>
-        </div>
+        <img src={logoImg} alt="Logo" className="w-9 h-9 rounded-lg object-cover" />
         <div className="leading-tight">
           <p className="font-bold text-[15px] tracking-tight">MAKEZY GROUP</p>
           <p className="text-[11px] text-neutral-400 font-medium">Management System</p>
@@ -166,9 +165,7 @@ export default function Sidebar({ active, onNavigate, onLogoutRequest }: Sidebar
       {/* Footer */}
       <div className="border-t border-neutral-200 p-4">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center">
-            <span className="text-sm font-semibold text-neutral-700">AD</span>
-          </div>
+          <img src={logoImg} alt="User Avatar" className="w-9 h-9 rounded-full object-cover" />
           <div className="leading-tight flex-1">
             <p className="text-sm font-semibold">Admin User</p>
             <p className="text-[11px] text-neutral-400">admin@makezy.com</p>

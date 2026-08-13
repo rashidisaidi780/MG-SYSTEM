@@ -35,6 +35,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const meta = pageMeta[page];
 
   const handleRefresh = () => {
@@ -66,18 +67,18 @@ export default function App() {
           onLogoutRequest={() => setLogoutConfirmOpen(true)}
         />
         <main className="flex-1 min-w-0">
-          <Topbar title={meta.title} subtitle={meta.subtitle} onNavigate={setPage} onRefresh={handleRefresh} isLoading={isLoading} />
+          <Topbar title={meta.title} subtitle={meta.subtitle} onNavigate={setPage} onRefresh={handleRefresh} isLoading={isLoading} searchQuery={searchQuery} onSearchChange={setSearchQuery} />
           <div key={page} className="min-h-[calc(100vh-4rem)] animate-book-page">
             {page === 'dashboard' && <DashboardPage />}
-            {page === 'events' && <EventsPage />}
+            {page === 'events' && <EventsPage searchQuery={searchQuery} />}
             {page === 'notifications' && <NotificationsPage refreshKey={refreshKey} />}
-            {page === 'projects' && <ProjectsPage />}
-            {page === 'clients' && <ClientsPage />}
-            {page === 'users' && <UsersPage />}
-            {page === 'workers' && <WorkersPage />}
-            {page === 'invoices' && <InvoicesPage />}
-            {page === 'bookings' && <BookingsPage />}
-            {page === 'officeOrders' && <OfficeOrdersPage />}
+            {page === 'projects' && <ProjectsPage searchQuery={searchQuery} />}
+            {page === 'clients' && <ClientsPage searchQuery={searchQuery} />}
+            {page === 'users' && <UsersPage searchQuery={searchQuery} />}
+            {page === 'workers' && <WorkersPage searchQuery={searchQuery} />}
+            {page === 'invoices' && <InvoicesPage searchQuery={searchQuery} />}
+            {page === 'bookings' && <BookingsPage searchQuery={searchQuery} />}
+            {page === 'officeOrders' && <OfficeOrdersPage searchQuery={searchQuery} />}
           </div>
         </main>
       </div>

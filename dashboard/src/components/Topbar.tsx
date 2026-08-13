@@ -7,9 +7,11 @@ interface TopbarProps {
   onNavigate?: (page: PageId) => void;
   onRefresh?: () => void;
   isLoading?: boolean;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
 }
 
-export default function Topbar({ title, subtitle, onNavigate, onRefresh, isLoading }: TopbarProps) {
+export default function Topbar({ title, subtitle, onNavigate, onRefresh, isLoading, searchQuery = '', onSearchChange }: TopbarProps) {
   return (
     <header className="h-16 border-b border-neutral-200 bg-white sticky top-0 z-10 flex items-center justify-between px-8">
       <div>
@@ -20,6 +22,8 @@ export default function Topbar({ title, subtitle, onNavigate, onRefresh, isLoadi
         <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 bg-neutral-50 w-72">
           <Search size={16} className="text-neutral-400" />
           <input
+            value={searchQuery}
+            onChange={(e) => onSearchChange?.(e.target.value)}
             placeholder="Search anything..."
             className="bg-transparent text-sm outline-none w-full placeholder:text-neutral-400"
           />

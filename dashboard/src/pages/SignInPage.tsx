@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import logoImg from '@/assets/logo.jpeg';
 import { notifySystem } from '@/utils/systemNotifications';
 
 export default function SignInPage({ onSignIn }: { onSignIn: () => void }) {
@@ -45,7 +46,7 @@ export default function SignInPage({ onSignIn }: { onSignIn: () => void }) {
         <main className="flex items-center justify-center bg-white p-10 md:p-12">
           <div className="w-full max-w-lg">
             <div className="mb-10 text-center">
-              <div className="mx-auto mb-6 h-14 w-14 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-xl font-bold text-slate-900">M</div>
+              <img src={logoImg} alt="Logo" className="mx-auto mb-8 h-24 w-24 rounded-full border-2 border-slate-200 object-cover shadow-lg" />
               <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Makezy group of companies</p>
               <h2 className="mt-4 text-3xl font-semibold text-slate-900">Sign in to your account</h2>
               <p className="mt-3 text-sm text-slate-500">Enter your username and password to continue.</p>
