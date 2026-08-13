@@ -2,6 +2,9 @@ import { useState } from 'react';
 import Sidebar, { type PageId } from '@/components/Sidebar';
 import Topbar from '@/components/Topbar';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import ToastContainer from '@/components/ToastContainer';
+import { ToastProvider } from '@/contexts/ToastContext';
+import { notifySystem } from '@/utils/systemNotifications';
 import DashboardPage from '@/pages/DashboardPage';
 import SignInPage from '@/pages/SignInPage';
 import ProjectsPage from '@/pages/ProjectsPage';
@@ -12,9 +15,11 @@ import InvoicesPage from '@/pages/InvoicesPage';
 import BookingsPage from '@/pages/BookingsPage';
 import OfficeOrdersPage from '@/pages/OfficeOrdersPage';
 import NotificationsPage from '@/pages/NotificationsPage';
+import EventsPage from '@/pages/EventsPage';
 
 const pageMeta: Record<PageId, { title: string; subtitle: string }> = {
   dashboard: { title: 'Dashboard', subtitle: 'Company overview & key metrics' },
+  events: { title: 'Event & Updates', subtitle: 'Latest system events and updates' },
   notifications: { title: 'Notifications', subtitle: 'System notifications & alerts' },
   projects: { title: 'Projects', subtitle: 'Manage all company projects' },
   clients: { title: 'Clients', subtitle: 'Your client directory' },
@@ -46,8 +51,9 @@ export default function App() {
   }
 
   return (
-    <>
-      <div className="min-h-screen bg-white flex">
+    <ToastProvider>
+      <>
+        <div className="min-h-screen bg-white flex">
         <Sidebar
           active={page}
           onNavigate={(nextPage) => {
@@ -63,6 +69,7 @@ export default function App() {
           <Topbar title={meta.title} subtitle={meta.subtitle} onNavigate={setPage} onRefresh={handleRefresh} isLoading={isLoading} />
           <div key={page} className="min-h-[calc(100vh-4rem)] animate-book-page">
             {page === 'dashboard' && <DashboardPage />}
+            {page === 'events' && <EventsPage />}
             {page === 'notifications' && <NotificationsPage refreshKey={refreshKey} />}
             {page === 'projects' && <ProjectsPage />}
             {page === 'clients' && <ClientsPage />}
@@ -88,6 +95,9 @@ export default function App() {
         }}
         onCancel={() => setLogoutConfirmOpen(false)}
       />
-    </>
+
+      <ToastContainer />
+      </>
+    </ToastProvider>
   );
 }

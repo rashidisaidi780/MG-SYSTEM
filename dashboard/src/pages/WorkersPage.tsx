@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Plus, MoreHorizontal, Mail, Phone, Edit3, Trash2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { useToast } from '@/contexts/ToastContext';
+import { notifySystem } from '@/utils/systemNotifications';
 
 interface Worker {
   id: string;
@@ -107,6 +109,7 @@ export default function WorkersPage() {
   const [formWorker, setFormWorker] = useState<Worker>(emptyWorker);
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
   const [pendingDeleteWorkerId, setPendingDeleteWorkerId] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const openForm = (mode: 'add' | 'edit', worker?: Worker) => {
     setFormMode(mode);
@@ -147,14 +150,15 @@ export default function WorkersPage() {
 
   const saveWorker = () => {
     if (!formWorker.name.trim() || !formWorker.tinNumber.trim() || !formWorker.nidaNumber.trim() || !formWorker.email.trim() || !formWorker.phone.trim() || !formWorker.contractStartDate.trim() || !formWorker.contractEndDate.trim()) {
+      showToast('Please fill in all required fields', 'warning');
       return;
     }
 
     if (formMode === 'add') {
-      setWorkers((current) => [
-        { ...formWorker, id: `worker-${Date.now()}` },
-        ...current,
-      ]);
+      const newWorker = { ...formWorker, id: `worker-${Date.now()}` };
+      setWorkers((current) => [newWorker, ...current]);
+      notifySystem('Worker added', `${newWorker.name} was added to the team.`);
+      showToast(`Worker "${newWorker.name}" added successfully`, 'success');
     } else {
       setWorkers((current) =>
         current.map((worker) => (worker.id === formWorker.id ? { ...formWorker } : worker)),
@@ -162,14 +166,21 @@ export default function WorkersPage() {
       if (selectedWorker?.id === formWorker.id) {
         setSelectedWorker(formWorker);
       }
+      notifySystem('Worker updated', `${formWorker.name}'s record was updated.`);
+      showToast(`Worker "${formWorker.name}" updated successfully`, 'success');
     }
     closeForm();
   };
 
   const deleteWorker = (workerId: string) => {
+    const workerToDelete = workers.find((worker) => worker.id === workerId);
     setWorkers((current) => current.filter((worker) => worker.id !== workerId));
     if (selectedWorker?.id === workerId) {
       closeDetail();
+    }
+    if (workerToDelete) {
+      notifySystem('Worker removed', `${workerToDelete.name} was removed from the team.`);
+      showToast(`Worker "${workerToDelete.name}" deleted`, 'info');
     }
     setPendingDeleteWorkerId(null);
   };

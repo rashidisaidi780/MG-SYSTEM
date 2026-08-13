@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Plus, Mail, Phone, Edit3, Trash2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { useToast } from '@/contexts/ToastContext';
+import { notifySystem } from '@/utils/systemNotifications';
 
 interface Client {
   id: string;
@@ -84,8 +86,7 @@ export default function ClientsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [formClient, setFormClient] = useState<Client>(emptyClient);
-  const [pendingDeleteClientId, setPendingDeleteClientId] = useState<string | null>(null);
-
+  const [pendingDeleteClientId, setPendingDeleteClientId] = useState<string | null>(null);  const { showToast } = useToast();
   const openForm = (mode: 'add' | 'edit', client?: Client) => {
     setFormMode(mode);
     setFormClient(client ? client : emptyClient);
@@ -110,25 +111,33 @@ export default function ClientsPage() {
       !formClient.tinNumber.trim() ||
       !formClient.date
     ) {
+      showToast('Please fill in all required fields', 'warning');
       return;
     }
 
     if (formMode === 'add') {
-      setClients((current) => [
-        { ...formClient, id: `client-${Date.now()}` },
-        ...current,
-      ]);
+      const newClient = { ...formClient, id: `client-${Date.now()}` };
+      setClients((current) => [newClient, ...current]);
+      notifySystem('Client added', `${newClient.name} was added to the client directory.`);
+      showToast(`Client "${newClient.name}" added successfully`, 'success');
     } else {
       setClients((current) =>
         current.map((client) => (client.id === formClient.id ? { ...formClient } : client)),
       );
+      notifySystem('Client updated', `${formClient.name} client details were updated.`);
+      showToast(`Client "${formClient.name}" updated successfully`, 'success');
     }
 
     closeForm();
   };
 
   const handleDelete = (clientId: string) => {
+    const clientToDelete = clients.find((client) => client.id === clientId);
     setClients((current) => current.filter((client) => client.id !== clientId));
+    if (clientToDelete) {
+      notifySystem('Client deleted', `${clientToDelete.name} was removed from the client directory.`);
+      showToast(`Client "${clientToDelete.name}" deleted`, 'info');
+    }
     setPendingDeleteClientId(null);
   };
 

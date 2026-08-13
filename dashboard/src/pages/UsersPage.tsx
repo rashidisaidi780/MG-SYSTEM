@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Plus, Mail, Key, Edit3, Trash2, ShieldCheck } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { useToast } from '@/contexts/ToastContext';
+import { notifySystem } from '@/utils/systemNotifications';
 
 type AccessLevel = 'None' | 'View' | 'Edit' | 'Both';
 
@@ -131,6 +133,7 @@ export default function UsersPage() {
   const [isAccessControlOpen, setIsAccessControlOpen] = useState(false);
   const [accessUser, setAccessUser] = useState<UserAccount | null>(null);
   const [pendingDeleteUserId, setPendingDeleteUserId] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const openForm = (mode: 'add' | 'edit', user?: UserAccount) => {
     setFormMode(mode);
@@ -173,23 +176,31 @@ export default function UsersPage() {
 
   const handleSave = () => {
     if (!formUser.username.trim() || !formUser.email.trim() || !formUser.password.trim()) {
+      showToast('Please fill in all required fields', 'warning');
       return;
     }
 
     if (formMode === 'add') {
-      setUsers((current) => [
-        { ...formUser, id: `user-${Date.now()}`, date: new Date().toISOString().slice(0, 10) },
-        ...current,
-      ]);
+      const newUser = { ...formUser, id: `user-${Date.now()}`, date: new Date().toISOString().slice(0, 10) };
+      setUsers((current) => [newUser, ...current]);
+      notifySystem('User added', `${newUser.username} was added to the system.`);
+      showToast(`User "${newUser.username}" added successfully`, 'success');
     } else {
       setUsers((current) => current.map((user) => (user.id === formUser.id ? { ...formUser } : user)));
+      notifySystem('User updated', `${formUser.username}'s account details were updated.`);
+      showToast(`User "${formUser.username}" updated successfully`, 'success');
     }
 
     closeForm();
   };
 
   const handleDelete = (userId: string) => {
+    const userToDelete = users.find((user) => user.id === userId);
     setUsers((current) => current.filter((user) => user.id !== userId));
+    if (userToDelete) {
+      notifySystem('User deleted', `${userToDelete.username} was removed from the system.`);
+      showToast(`User "${userToDelete.username}" deleted`, 'info');
+    }
     setPendingDeleteUserId(null);
   };
 

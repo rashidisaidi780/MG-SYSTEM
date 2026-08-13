@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Bell, Trash2, CheckCircle } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import type { SystemNotificationEventDetail } from '@/utils/systemNotifications';
 
 interface Notification {
   id: string;
@@ -11,15 +12,34 @@ interface Notification {
 }
 
 const initial: Notification[] = [
-  { id: 'n1', title: 'Invoice paid', message: 'Invoice INV-2043 has been paid.', time: '2m', read: false },
-  { id: 'n2', title: 'New booking', message: 'Booking BO-119 has been created.', time: '1h', read: false },
-  { id: 'n3', title: 'Project updated', message: 'Project Mobile App status changed to In Progress.', time: '3h', read: true },
-  { id: 'n4', title: 'Worker added', message: 'New worker profile added: Mia Lopez.', time: '1d', read: false },
+  { id: 'sys-1', title: 'System started', message: 'Management dashboard is ready.', time: 'now', read: false },
+  { id: 'sys-2', title: 'Activity feed enabled', message: 'All system actions are now tracked here.', time: 'now', read: true },
 ];
 
 export default function NotificationsPage({ refreshKey }: { refreshKey?: number }) {
   const [items, setItems] = useState<Notification[]>(initial);
   const [confirmDelete, setConfirmDelete] = useState<{ kind: 'all' | 'one'; id?: string } | null>(null);
+
+  useEffect(() => {
+    const handleSystemNotification = (event: Event) => {
+      const { title, message } = (event as CustomEvent<SystemNotificationEventDetail>).detail;
+      const timeLabel = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+      setItems((current) => [
+        {
+          id: `activity-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          title,
+          message,
+          time: timeLabel,
+          read: false,
+        },
+        ...current,
+      ]);
+    };
+
+    window.addEventListener('system-notification', handleSystemNotification);
+    return () => window.removeEventListener('system-notification', handleSystemNotification);
+  }, []);
 
   // when parent signals refresh, simulate fetching and add a refresh note
   useEffect(() => {

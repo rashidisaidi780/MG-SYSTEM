@@ -1,6 +1,8 @@
 ﻿import { useState, type MouseEvent } from 'react';
 import { Plus, Download, MoreHorizontal, Edit3, Eye, Trash2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { useToast } from '@/contexts/ToastContext';
+import { notifySystem } from '@/utils/systemNotifications';
 
 interface Invoice {
   id: string;
@@ -119,6 +121,7 @@ export default function InvoicesPage() {
   const [editInvoice, setEditInvoice] = useState<Invoice | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [pendingDeleteInvoiceId, setPendingDeleteInvoiceId] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const [createForm, setCreateForm] = useState({
     invoiceId: '',
@@ -272,11 +275,18 @@ export default function InvoicesPage() {
       notes: createForm.items.map((it) => `${it.desc} — ${formatCurrency(it.amount)}`).join('\n'),
     };
     setInvoices((cur) => [newInv, ...cur]);
+    notifySystem('Invoice created', `${newInv.id} was created for ${newInv.client}.`);
+    showToast(`Invoice "${newInv.id}" created successfully`, 'success');
     closeCreate();
   };
 
   const handleDelete = (id: string) => {
+    const deletedInvoice = invoices.find((x) => x.id === id);
     setInvoices((cur) => cur.filter((x) => x.id !== id));
+    if (deletedInvoice) {
+      notifySystem('Invoice deleted', `${deletedInvoice.id} was deleted from the invoices list.`);
+      showToast(`Invoice "${deletedInvoice.id}" deleted`, 'info');
+    }
     setOpenMenu(null);
     setPendingDeleteInvoiceId(null);
   };

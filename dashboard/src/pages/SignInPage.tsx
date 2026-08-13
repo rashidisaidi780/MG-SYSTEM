@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { notifySystem } from '@/utils/systemNotifications';
 
 export default function SignInPage({ onSignIn }: { onSignIn: () => void }) {
   const [username, setUsername] = useState('');
@@ -14,6 +15,7 @@ export default function SignInPage({ onSignIn }: { onSignIn: () => void }) {
       } catch (e) {
         /* ignore */
       }
+      notifySystem('User signed in', `${username || 'A user'} signed in successfully.`);
       setLoading(false);
       onSignIn();
     }, 900);

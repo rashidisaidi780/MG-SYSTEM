@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Plus, MoreHorizontal, Filter, Edit3, Trash2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { useToast } from '@/contexts/ToastContext';
+import { notifySystem } from '@/utils/systemNotifications';
 
 interface ClientOption {
   id: string;
@@ -97,6 +99,7 @@ export default function ProjectsPage() {
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [formProject, setFormProject] = useState<Project>(emptyProject);
   const [pendingDeleteProjectId, setPendingDeleteProjectId] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const selectedClientName = (clientId: string) => clients.find((client) => client.id === clientId)?.name ?? '';
 
@@ -127,14 +130,15 @@ export default function ProjectsPage() {
 
   const saveProject = () => {
     if (!formProject.name.trim() || !formProject.budget.trim() || !formProject.lead.trim() || !formProject.startDate || !formProject.endDate) {
+      showToast('Please fill in all required fields', 'warning');
       return;
     }
 
     if (formMode === 'add') {
-      setProjectList((current) => [
-        { ...formProject, id: `project-${Date.now()}` },
-        ...current,
-      ]);
+      const newProject = { ...formProject, id: `project-${Date.now()}` };
+      setProjectList((current) => [newProject, ...current]);
+      notifySystem('Project added', `${newProject.name} was added to the portfolio.`);
+      showToast(`Project "${newProject.name}" added successfully`, 'success');
     } else {
       setProjectList((current) =>
         current.map((project) => (project.id === formProject.id ? { ...formProject } : project)),
@@ -142,15 +146,22 @@ export default function ProjectsPage() {
       if (activeProject?.id === formProject.id) {
         setActiveProject(formProject);
       }
+      notifySystem('Project updated', `${formProject.name} details were updated.`);
+      showToast(`Project "${formProject.name}" updated successfully`, 'success');
     }
 
     closeForm();
   };
 
   const deleteProject = (projectId: string) => {
+    const projectToDelete = projectList.find((project) => project.id === projectId);
     setProjectList((current) => current.filter((project) => project.id !== projectId));
     if (activeProject?.id === projectId) {
       closeDetail();
+    }
+    if (projectToDelete) {
+      notifySystem('Project deleted', `${projectToDelete.name} was removed from the project list.`);
+      showToast(`Project "${projectToDelete.name}" deleted`, 'info');
     }
     setPendingDeleteProjectId(null);
   };

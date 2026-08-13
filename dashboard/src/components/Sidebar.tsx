@@ -11,12 +11,14 @@ import {
   Bell,
   Boxes,
   LogOut,
+  Activity,
 } from 'lucide-react';
 
 export type PageId =
   | 'dashboard'
   | 'signin'
   | 'notifications'
+  | 'events'
   | 'projects'
   | 'clients'
   | 'users'
@@ -65,8 +67,11 @@ const NAV: NavGroup[] = [
       { id: 'officeOrders', label: 'Office Order', icon: ClipboardList },
     ],
   },
-  { 
-    label: 'Notifications', icon: Bell, id: 'notifications' 
+  {
+    label: 'Event & Updates', icon: Activity, id: 'events',
+  },
+  {
+    label: 'Notifications', icon: Bell, id: 'notifications',
   },
 ];
 
