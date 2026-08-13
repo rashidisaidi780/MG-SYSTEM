@@ -1,11 +1,15 @@
-import { Search, Bell, Plus } from 'lucide-react';
+import { Search, Bell, RefreshCcw } from 'lucide-react';
+import type { PageId } from '@/components/Sidebar';
 
 interface TopbarProps {
   title: string;
   subtitle: string;
+  onNavigate?: (page: PageId) => void;
+  onRefresh?: () => void;
+  isLoading?: boolean;
 }
 
-export default function Topbar({ title, subtitle }: TopbarProps) {
+export default function Topbar({ title, subtitle, onNavigate, onRefresh, isLoading }: TopbarProps) {
   return (
     <header className="h-16 border-b border-neutral-200 bg-white sticky top-0 z-10 flex items-center justify-between px-8">
       <div>
@@ -20,11 +24,25 @@ export default function Topbar({ title, subtitle }: TopbarProps) {
             className="bg-transparent text-sm outline-none w-full placeholder:text-neutral-400"
           />
         </div>
-        <button className="relative p-2 rounded-lg hover:bg-neutral-100 transition-colors">
+        <button
+          type="button"
+          onClick={() => (onRefresh ? onRefresh() : window.location.reload())}
+          className="p-2 rounded-lg hover:bg-neutral-100 transition-colors"
+          aria-label="Refresh page"
+        >
+          <RefreshCcw
+            size={18}
+            className={`text-neutral-600 ${isLoading ? 'animate-spin' : ''}`}
+          />
+        </button>
+        <button
+          onClick={() => onNavigate?.('notifications')}
+          className="relative p-2 rounded-lg hover:bg-neutral-100 transition-colors"
+          aria-label="Open notifications"
+        >
           <Bell size={18} className="text-neutral-600" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-black" />
         </button>
-        
       </div>
     </header>
   );

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Plus, MoreHorizontal, Filter, Edit3, Trash2 } from 'lucide-react';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 interface ClientOption {
   id: string;
@@ -95,6 +96,7 @@ export default function ProjectsPage() {
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [formProject, setFormProject] = useState<Project>(emptyProject);
+  const [pendingDeleteProjectId, setPendingDeleteProjectId] = useState<string | null>(null);
 
   const selectedClientName = (clientId: string) => clients.find((client) => client.id === clientId)?.name ?? '';
 
@@ -150,6 +152,7 @@ export default function ProjectsPage() {
     if (activeProject?.id === projectId) {
       closeDetail();
     }
+    setPendingDeleteProjectId(null);
   };
 
   return (
@@ -216,6 +219,19 @@ export default function ProjectsPage() {
         </div>
       </div>
 
+      <ConfirmDialog
+        open={pendingDeleteProjectId !== null}
+        title="Delete project?"
+        message="This project will be permanently removed. Do you want to continue?"
+        confirmText="Yes"
+        cancelText="No"
+        destructive
+        onConfirm={() => {
+          if (pendingDeleteProjectId) deleteProject(pendingDeleteProjectId);
+        }}
+        onCancel={() => setPendingDeleteProjectId(null)}
+      />
+
       {detailOpen && activeProject ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6 backdrop-blur-sm">
           <div className="w-full max-w-2xl rounded-[32px] bg-white p-8 shadow-2xl animate-book-modal">
@@ -236,7 +252,7 @@ export default function ProjectsPage() {
                   Edit
                 </button>
                 <button
-                  onClick={() => deleteProject(activeProject.id)}
+                  onClick={() => setPendingDeleteProjectId(activeProject.id)}
                   className="rounded-3xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-100 transition"
                 >
                   Delete

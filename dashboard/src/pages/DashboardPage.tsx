@@ -4,7 +4,6 @@ import {
   TrendingDown,
   FolderKanban,
   Users,
-  DollarSign,
   ClipboardList,
   ArrowUpRight,
   FileText,

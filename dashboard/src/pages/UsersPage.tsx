@@ -1,5 +1,31 @@
 import { useState } from 'react';
-import { Plus, Mail, Key, Edit3, Trash2 } from 'lucide-react';
+import { Plus, Mail, Key, Edit3, Trash2, ShieldCheck } from 'lucide-react';
+import ConfirmDialog from '@/components/ConfirmDialog';
+
+type AccessLevel = 'None' | 'View' | 'Edit' | 'Both';
+
+type AccessArea =
+  | 'Dashboard'
+  | 'Projects'
+  | 'Clients'
+  | 'Users'
+  | 'Workers'
+  | 'Invoices'
+  | 'Notifications'
+  | 'Booking Orders'
+  | 'Office Orders';
+
+const systemAreas: AccessArea[] = [
+  'Dashboard',
+  'Projects',
+  'Clients',
+  'Users',
+  'Workers',
+  'Invoices',
+  'Notifications',
+  'Booking Orders',
+  'Office Orders',
+];
 
 interface UserAccount {
   id: string;
@@ -9,6 +35,7 @@ interface UserAccount {
   role: 'Admin' | 'Manager' | 'Sub User' | 'Accountant';
   status: 'Active' | 'Inactive';
   date: string;
+  access: Record<AccessArea, AccessLevel>;
 }
 
 const initialUsers: UserAccount[] = [
@@ -20,6 +47,17 @@ const initialUsers: UserAccount[] = [
     role: 'Admin',
     status: 'Active',
     date: '2026-07-01',
+    access: {
+      Dashboard: 'Both',
+      Projects: 'Both',
+      Clients: 'Both',
+      Users: 'Both',
+      Workers: 'Both',
+      Invoices: 'Both',
+      Notifications: 'Both',
+      'Booking Orders': 'Both',
+      'Office Orders': 'Both',
+    },
   },
   {
     id: 'user-2',
@@ -29,6 +67,17 @@ const initialUsers: UserAccount[] = [
     role: 'Manager',
     status: 'Active',
     date: '2026-08-02',
+    access: {
+      Dashboard: 'Both',
+      Projects: 'Both',
+      Clients: 'Both',
+      Users: 'None',
+      Workers: 'Both',
+      Invoices: 'Both',
+      Notifications: 'Both',
+      'Booking Orders': 'Both',
+      'Office Orders': 'None',
+    },
   },
   {
     id: 'user-3',
@@ -38,6 +87,17 @@ const initialUsers: UserAccount[] = [
     role: 'Sub User',
     status: 'Inactive',
     date: '2026-06-22',
+    access: {
+      Dashboard: 'Both',
+      Projects: 'None',
+      Clients: 'None',
+      Users: 'None',
+      Workers: 'None',
+      Invoices: 'None',
+      Notifications: 'View',
+      'Booking Orders': 'View',
+      'Office Orders': 'None',
+    },
   },
 ];
 
@@ -49,6 +109,17 @@ const emptyUser: UserAccount = {
   role: 'Sub User',
   status: 'Active',
   date: '',
+  access: {
+    Dashboard: 'Both',
+    Projects: 'None',
+    Clients: 'None',
+    Users: 'None',
+    Workers: 'None',
+    Invoices: 'None',
+    Notifications: 'None',
+    'Booking Orders': 'None',
+    'Office Orders': 'None',
+  },
 };
 
 export default function UsersPage() {
@@ -57,6 +128,9 @@ export default function UsersPage() {
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [formUser, setFormUser] = useState<UserAccount>(emptyUser);
   const [showPassword, setShowPassword] = useState(false);
+  const [isAccessControlOpen, setIsAccessControlOpen] = useState(false);
+  const [accessUser, setAccessUser] = useState<UserAccount | null>(null);
+  const [pendingDeleteUserId, setPendingDeleteUserId] = useState<string | null>(null);
 
   const openForm = (mode: 'add' | 'edit', user?: UserAccount) => {
     setFormMode(mode);
@@ -72,6 +146,29 @@ export default function UsersPage() {
 
   const handleChange = (field: keyof UserAccount, value: string) => {
     setFormUser((current) => ({ ...current, [field]: value }));
+  };
+
+  const openAccessControl = (user: UserAccount) => {
+    setAccessUser(user);
+    setIsAccessControlOpen(true);
+  };
+
+  const closeAccessControl = () => {
+    setIsAccessControlOpen(false);
+    setAccessUser(null);
+  };
+
+  const setAccessLevel = (area: AccessArea, level: AccessLevel) => {
+    if (!accessUser) return;
+    setAccessUser((current) =>
+      current ? { ...current, access: { ...current.access, [area]: level } } : null,
+    );
+  };
+
+  const saveAccessControl = () => {
+    if (!accessUser) return;
+    setUsers((current) => current.map((user) => (user.id === accessUser.id ? accessUser : user)));
+    closeAccessControl();
   };
 
   const handleSave = () => {
@@ -93,6 +190,7 @@ export default function UsersPage() {
 
   const handleDelete = (userId: string) => {
     setUsers((current) => current.filter((user) => user.id !== userId));
+    setPendingDeleteUserId(null);
   };
 
   return (
@@ -134,7 +232,14 @@ export default function UsersPage() {
                   <Edit3 size={16} />
                 </button>
                 <button
-                  onClick={() => handleDelete(user.id)}
+                  onClick={() => openAccessControl(user)}
+                  className="p-2 rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-black transition-colors"
+                  title="Access control"
+                >
+                  <ShieldCheck size={16} />
+                </button>
+                <button
+                  onClick={() => setPendingDeleteUserId(user.id)}
                   className="p-2 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
                   title="Delete user"
                 >
@@ -172,6 +277,19 @@ export default function UsersPage() {
           </div>
         ))}
       </div>
+
+      <ConfirmDialog
+        open={pendingDeleteUserId !== null}
+        title="Delete user?"
+        message="This user account will be permanently removed. Do you want to continue?"
+        confirmText="Yes"
+        cancelText="No"
+        destructive
+        onConfirm={() => {
+          if (pendingDeleteUserId) handleDelete(pendingDeleteUserId);
+        }}
+        onCancel={() => setPendingDeleteUserId(null)}
+      />
 
       {isFormOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6 backdrop-blur-sm">
@@ -271,6 +389,91 @@ export default function UsersPage() {
               >
                 Save user
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isAccessControlOpen && accessUser ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-[32px] bg-white shadow-2xl animate-book-modal">
+            <div className="p-8 pb-4">
+              <div className="flex flex-col gap-4 mb-6">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.24em] text-neutral-400">Access control</p>
+                  <h3 className="text-2xl font-semibold mt-2">Manage system access for {accessUser.username}</h3>
+                  <p className="text-sm text-neutral-500 mt-2">
+                    Grant or revoke access to each area of the system. Checked items are available to the user, while unchecked areas will be restricted.
+                  </p>
+                </div>
+                <button
+                  onClick={closeAccessControl}
+                  className="self-start rounded-2xl px-4 py-3 text-sm font-semibold text-neutral-600 hover:bg-neutral-100 transition"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="max-h-[55vh] overflow-y-auto pr-1">
+                <div className="grid gap-3">
+                  {systemAreas.map((area) => (
+                    <div
+                      key={area}
+                      className="rounded-3xl border border-neutral-200 p-3 hover:border-black transition-colors"
+                    >
+                      <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                        <div>
+                          <span className="font-semibold text-sm">{area}</span>
+                          <p className="text-xs text-neutral-500 mt-1 max-w-xl">
+                            {accessUser.access[area] === 'None'
+                              ? `Blocked: ${accessUser.username} cannot access ${area.toLowerCase()}.`
+                              : accessUser.access[area] === 'View'
+                              ? `View only: ${accessUser.username} can see ${area.toLowerCase()}.`
+                              : accessUser.access[area] === 'Edit'
+                              ? `Edit only: ${accessUser.username} can modify ${area.toLowerCase()}.`
+                              : `Full access: ${accessUser.username} can view and edit ${area.toLowerCase()}.`}
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          {(['View', 'Edit', 'Both'] as AccessLevel[]).map((level) => (
+                            <label
+                              key={level}
+                              className="flex cursor-pointer items-center justify-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-neutral-700 transition-colors hover:border-black"
+                            >
+                              <input
+                                type="radio"
+                                name={`${area}-${accessUser.id}`}
+                                value={level}
+                                checked={accessUser.access[area] === level}
+                                onChange={() => setAccessLevel(area, level)}
+                                className="h-3 w-3 accent-black"
+                              />
+                              {level}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-neutral-200 px-8 py-5">
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={closeAccessControl}
+                  className="rounded-3xl border border-neutral-200 px-5 py-3 text-sm font-semibold hover:bg-neutral-100 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveAccessControl}
+                  className="rounded-3xl bg-black text-white px-5 py-3 text-sm font-semibold hover:bg-neutral-900 transition"
+                >
+                  Save access
+                </button>
+              </div>
             </div>
           </div>
         </div>

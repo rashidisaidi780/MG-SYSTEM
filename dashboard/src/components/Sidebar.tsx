@@ -8,21 +8,27 @@ import {
   FileText,
   ClipboardList,
   ChevronDown,
+  Bell,
   Boxes,
+  LogOut,
 } from 'lucide-react';
 
 export type PageId =
   | 'dashboard'
+  | 'signin'
+  | 'notifications'
   | 'projects'
   | 'clients'
   | 'users'
   | 'workers'
   | 'invoices'
-  | 'bookings';
+  | 'bookings'
+  | 'officeOrders';
 
 interface SidebarProps {
   active: PageId;
   onNavigate: (page: PageId) => void;
+  onLogoutRequest?: () => void;
 }
 
 interface NavGroup {
@@ -54,11 +60,17 @@ const NAV: NavGroup[] = [
   {
     label: 'Order',
     icon: ClipboardList,
-    children: [{ id: 'bookings', label: 'Booking Order', icon: ClipboardList }],
+    children: [
+      { id: 'bookings', label: 'Booking Order', icon: ClipboardList },
+      { id: 'officeOrders', label: 'Office Order', icon: ClipboardList },
+    ],
+  },
+  { 
+    label: 'Notifications', icon: Bell, id: 'notifications' 
   },
 ];
 
-export default function Sidebar({ active, onNavigate }: SidebarProps) {
+export default function Sidebar({ active, onNavigate, onLogoutRequest }: SidebarProps) {
   const initialOpen = (() => {
     const open: Record<string, boolean> = {};
     NAV.forEach((g) => {
@@ -152,10 +164,19 @@ export default function Sidebar({ active, onNavigate }: SidebarProps) {
           <div className="w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center">
             <span className="text-sm font-semibold text-neutral-700">AD</span>
           </div>
-          <div className="leading-tight">
+          <div className="leading-tight flex-1">
             <p className="text-sm font-semibold">Admin User</p>
             <p className="text-[11px] text-neutral-400">admin@makezy.com</p>
           </div>
+        </div>
+        <div className="mt-3">
+          <button
+            onClick={() => onLogoutRequest?.()}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 mt-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+          >
+            <LogOut size={16} />
+            <span className="text-sm font-semibold">Logout</span>
+          </button>
         </div>
       </div>
     </aside>

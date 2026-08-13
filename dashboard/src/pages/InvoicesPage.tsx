@@ -1,5 +1,6 @@
 ﻿import { useState, type MouseEvent } from 'react';
 import { Plus, Download, MoreHorizontal, Edit3, Eye, Trash2 } from 'lucide-react';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 interface Invoice {
   id: string;
@@ -117,6 +118,7 @@ export default function InvoicesPage() {
   const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
   const [editInvoice, setEditInvoice] = useState<Invoice | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [pendingDeleteInvoiceId, setPendingDeleteInvoiceId] = useState<string | null>(null);
 
   const [createForm, setCreateForm] = useState({
     invoiceId: '',
@@ -274,9 +276,9 @@ export default function InvoicesPage() {
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm('Delete this invoice?')) return;
     setInvoices((cur) => cur.filter((x) => x.id !== id));
     setOpenMenu(null);
+    setPendingDeleteInvoiceId(null);
   };
 
   return (
@@ -333,7 +335,7 @@ export default function InvoicesPage() {
                         <button onClick={() => handleEdit(inv.id)} className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-50 flex items-center gap-2">
                           <Edit3 size={14} /> Update
                         </button>
-                        <button onClick={() => handleDelete(inv.id)} className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-50 flex items-center gap-2 text-red-600">
+                        <button onClick={() => setPendingDeleteInvoiceId(inv.id)} className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-50 flex items-center gap-2 text-red-600">
                           <Trash2 size={14} /> Delete
                         </button>
                         <button onClick={() => handleDownload(inv.id)} className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-50 flex items-center gap-2">
@@ -348,6 +350,19 @@ export default function InvoicesPage() {
           </table>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={pendingDeleteInvoiceId !== null}
+        title="Delete invoice?"
+        message="This invoice will be permanently removed. Do you want to continue?"
+        confirmText="Yes"
+        cancelText="No"
+        destructive
+        onConfirm={() => {
+          if (pendingDeleteInvoiceId) handleDelete(pendingDeleteInvoiceId);
+        }}
+        onCancel={() => setPendingDeleteInvoiceId(null)}
+      />
 
       {viewInvoice ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6 backdrop-blur-sm">

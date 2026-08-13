@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Plus, MoreHorizontal, Mail, Phone, Edit3, Trash2 } from 'lucide-react';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 interface Worker {
   id: string;
@@ -105,6 +106,7 @@ export default function WorkersPage() {
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [formWorker, setFormWorker] = useState<Worker>(emptyWorker);
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
+  const [pendingDeleteWorkerId, setPendingDeleteWorkerId] = useState<string | null>(null);
 
   const openForm = (mode: 'add' | 'edit', worker?: Worker) => {
     setFormMode(mode);
@@ -169,6 +171,7 @@ export default function WorkersPage() {
     if (selectedWorker?.id === workerId) {
       closeDetail();
     }
+    setPendingDeleteWorkerId(null);
   };
 
   return (
@@ -244,6 +247,19 @@ export default function WorkersPage() {
         ))}
       </div>
 
+      <ConfirmDialog
+        open={pendingDeleteWorkerId !== null}
+        title="Delete worker?"
+        message="This worker record will be permanently removed from the team. Do you want to continue?"
+        confirmText="Yes"
+        cancelText="No"
+        destructive
+        onConfirm={() => {
+          if (pendingDeleteWorkerId) deleteWorker(pendingDeleteWorkerId);
+        }}
+        onCancel={() => setPendingDeleteWorkerId(null)}
+      />
+
       {detailOpen && selectedWorker ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6 backdrop-blur-sm">
           <div className="w-full max-w-2xl rounded-[32px] bg-white p-8 shadow-2xl animate-book-modal">
@@ -264,7 +280,7 @@ export default function WorkersPage() {
                   Edit
                 </button>
                 <button
-                  onClick={() => deleteWorker(selectedWorker.id)}
+                  onClick={() => setPendingDeleteWorkerId(selectedWorker.id)}
                   className="rounded-3xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-100 transition"
                 >
                   Delete

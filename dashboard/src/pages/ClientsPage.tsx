@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Plus, Mail, Phone, Edit3, Trash2 } from 'lucide-react';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 interface Client {
   id: string;
@@ -83,6 +84,7 @@ export default function ClientsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [formClient, setFormClient] = useState<Client>(emptyClient);
+  const [pendingDeleteClientId, setPendingDeleteClientId] = useState<string | null>(null);
 
   const openForm = (mode: 'add' | 'edit', client?: Client) => {
     setFormMode(mode);
@@ -127,6 +129,7 @@ export default function ClientsPage() {
 
   const handleDelete = (clientId: string) => {
     setClients((current) => current.filter((client) => client.id !== clientId));
+    setPendingDeleteClientId(null);
   };
 
   return (
@@ -167,7 +170,7 @@ export default function ClientsPage() {
                   <Edit3 size={16} />
                 </button>
                 <button
-                  onClick={() => handleDelete(client.id)}
+                  onClick={() => setPendingDeleteClientId(client.id)}
                   className="p-2 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
                   title="Delete client"
                 >
@@ -209,6 +212,19 @@ export default function ClientsPage() {
           </div>
         ))}
       </div>
+
+      <ConfirmDialog
+        open={pendingDeleteClientId !== null}
+        title="Delete client?"
+        message="This client will be removed from the system. Do you want to continue?"
+        confirmText="Yes"
+        cancelText="No"
+        destructive
+        onConfirm={() => {
+          if (pendingDeleteClientId) handleDelete(pendingDeleteClientId);
+        }}
+        onCancel={() => setPendingDeleteClientId(null)}
+      />
 
       {isFormOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6 backdrop-blur-sm">
