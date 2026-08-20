@@ -3,6 +3,21 @@ import { Plus, Download, MoreHorizontal, Edit3, Eye, Trash2 } from 'lucide-react
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
+import logoImg from '@/assets/logo.jpeg';
+
+const companyProfile = {
+  name: 'MAKEZY GROUP',
+  email: 'info@makezy.co.tz',
+  location: 'Plot 112, Dar es Salaam, Tanzania',
+  phone: '+255 758 018 277 | +255 679 763 448',
+  website: 'www.makezy.co.tz',
+  poBox: 'P.O. Box 12345, Dar es Salaam, Tanzania',
+  tin: 'TIN-000000000',
+  bankName: 'SELCOM BANK',
+  bankAccountName: 'MAKEZY GROUP',
+  bankAccountNumber: '0000000000',
+  bankBranch: 'Dar es Salaam Branch',
+};
 
 interface Invoice {
   id: string;
@@ -78,7 +93,7 @@ const initialInvoices: Invoice[] = [
     address: '123 Main St, Suite 300',
     country: 'USA',
     items: [{ desc: 'Design', amount: 8400 }],
-    amount: '$8,400',
+    amount: 'Tsh 8,400',
     date: 'Aug 10, 2026',
     issuedRaw: '2026-08-10',
     due: 'Aug 24, 2026',
@@ -96,7 +111,7 @@ const initialInvoices: Invoice[] = [
     address: '456 Commerce Ave',
     country: 'USA',
     items: [{ desc: 'Development', amount: 15200 }],
-    amount: '$15,200',
+    amount: 'Tsh 15,200',
     date: 'Aug 08, 2026',
     issuedRaw: '2026-08-08',
     due: 'Aug 22, 2026',
@@ -112,6 +127,9 @@ const statusStyles: Record<Invoice['status'], string> = {
   Overdue: 'bg-red-50 text-red-700',
   Canceled: 'bg-gray-50 text-gray-700',
 };
+
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] ?? character);
 
 export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
@@ -144,6 +162,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
     address: '',
     country: '',
     items: [{ desc: '', amount: 0 }],
+    notes: '',
     issued: new Date().toISOString().slice(0, 10),
     due: new Date().toISOString().slice(0, 10),
   });
@@ -190,15 +209,75 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
   const handleDownload = (id: string) => {
     const inv = invoices.find((i) => i.id === id);
     if (!inv) return;
-    const content = `Invoice: ${inv.id}\nClient: ${inv.client}\nAmount: ${inv.amount}\nIssued: ${inv.date}\nDue: ${inv.due}\nStatus: ${inv.status}\n`;
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${inv.id}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const items = inv.items?.length ? inv.items : [{ desc: 'Services', amount: Number(inv.amount.replace(/[^0-9.-]+/g, '')) || 0 }];
+    const itemsTotal = items.reduce((sum, item) => sum + item.amount, 0);
+    const invoiceWindow = window.open('', '_blank', 'width=900,height=1100');
+    if (!invoiceWindow) {
+      showToast('Please allow pop-ups to download the invoice as a PDF.', 'warning');
+      return;
+    }
+
+    invoiceWindow.document.write(`<!doctype html>
+      <html><head><title>${escapeHtml(inv.id)} - Invoice</title>
+      <style>
+        @page { size: A4; margin: 0; }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: #171717; font-family: Arial, Helvetica, sans-serif; background: #f5f5f5; }
+        .page { position: relative; width: 210mm; height: 297mm; margin: 0 auto; padding: 12mm 14mm 20mm; overflow: hidden; background: #fff; }
+        .watermark { position: absolute; z-index: 0; width: 135mm; height: 135mm; object-fit: contain; left: 37mm; top: 78mm; opacity: .045; }
+        .content { position: relative; z-index: 1; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 7mm; border-bottom: 2px solid #171717; }
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .brand img { width: 52px; height: 52px; object-fit: contain; }
+        .brand-name { margin: 0; font-size: 21px; letter-spacing: 2px; }
+        .muted { color: #737373; }
+        .small { font-size: 9px; line-height: 1.45; }
+        .title { text-align: right; }
+        .title h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: 1px; }
+        .title p { margin: 2px 0; font-size: 10px; }
+        .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 14mm; padding: 7mm 0 6mm; }
+        .label { margin-bottom: 3px; color: #737373; font-size: 8px; letter-spacing: 1.2px; text-transform: uppercase; }
+        .value { font-size: 11px; line-height: 1.4; }
+        table { width: 100%; border-collapse: collapse; margin-top: 2mm; }
+        th { padding: 7px 10px; color: #737373; background: #f5f5f5; font-size: 8px; letter-spacing: 1px; text-align: left; text-transform: uppercase; }
+        td { padding: 8px 10px; border-bottom: 1px solid #e5e5e5; font-size: 10px; }
+        th:last-child, td:last-child { text-align: right; }
+        .total { display: flex; justify-content: flex-end; padding: 5mm 10px 6mm; border-bottom: 1px solid #171717; }
+        .total-box { width: 72mm; }
+        .total-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 10px; }
+        .grand-total { margin-top: 5px; padding-top: 6px; border-top: 1px solid #d4d4d4; font-size: 14px; font-weight: bold; }
+        .details { display: grid; grid-template-columns: 1fr 1fr; gap: 10mm; padding-top: 7mm; }
+        .detail-box { padding-top: 8px; border-top: 2px solid #171717; }
+        .detail-box h2 { margin: 0 0 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+        .detail-box p { margin: 3px 0; font-size: 9px; line-height: 1.35; }
+        .approval { display: grid; grid-template-columns: 1fr 1fr; gap: 12mm; margin-top: 8mm; padding-top: 6mm; border-top: 1px solid #d4d4d4; page-break-inside: avoid; }
+        .approval-box { min-height: 25mm; }
+        .approval-title { margin: 0 0 15mm; font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        .signature-line { width: 100%; padding-top: 4px; border-top: 1px solid #171717; font-size: 8px; color: #737373; }
+        .stamp-area { height: 22mm; border: 1px dashed #a3a3a3; display: flex; align-items: center; justify-content: center; color: #a3a3a3; font-size: 8px; text-transform: uppercase; letter-spacing: 1px; }
+        .footer { position: absolute; bottom: 11mm; left: 14mm; right: 14mm; display: flex; justify-content: space-between; padding-top: 6px; border-top: 1px solid #e5e5e5; font-size: 8px; color: #737373; }
+        @media print { body { background: #fff; } .page { margin: 0; } }
+      </style></head><body><main class="page">
+        <img class="watermark" src="${logoImg}" alt="" />
+        <div class="content">
+          <header class="header">
+            <div class="brand"><img src="${logoImg}" alt="${escapeHtml(companyProfile.name)} logo" /><div><h2 class="brand-name">${escapeHtml(companyProfile.name)}</h2><p class="small muted">${escapeHtml(companyProfile.location)}</p></div></div>
+            <div class="title"><h1>INVOICE</h1><p><strong>${escapeHtml(inv.id)}</strong></p><p class="muted">${escapeHtml(inv.status)}</p></div>
+          </header>
+          <section class="meta">
+            <div><div class="label">Billed to</div><div class="value"><strong>${escapeHtml(inv.company || inv.client)}</strong><br>${escapeHtml(inv.client)}<br>${escapeHtml(inv.address || '')}<br>${escapeHtml(inv.country || '')}<br>${escapeHtml(inv.email || '')} &nbsp; ${escapeHtml(inv.phone || '')}<br>TIN: ${escapeHtml(inv.tin || 'Not provided')}</div></div>
+            <div><div class="label">Invoice details</div><div class="value">Issue date: <strong>${escapeHtml(inv.date)}</strong><br>Due date: <strong>${escapeHtml(inv.due)}</strong><br>Payment status: <strong>${escapeHtml(inv.status)}</strong></div></div>
+          </section>
+          <table><thead><tr><th>Description</th><th>Amount</th></tr></thead><tbody>${items.map((item) => `<tr><td>${escapeHtml(item.desc || 'Service')}</td><td>${formatCurrency(item.amount)}</td></tr>`).join('')}</tbody></table>
+          <div class="total"><div class="total-box"><div class="total-row"><span>Subtotal</span><span>${formatCurrency(itemsTotal)}</span></div><div class="total-row grand-total"><span>Total due</span><span>${formatCurrency(itemsTotal)}</span></div></div></div>
+          <section class="details"><div class="detail-box"><h2>Company details</h2><p>${escapeHtml(companyProfile.email)}</p><p>${escapeHtml(companyProfile.phone)} &nbsp; | &nbsp; ${escapeHtml(companyProfile.website)}</p><p>${escapeHtml(companyProfile.location)}</p><p>${escapeHtml(companyProfile.poBox)}</p><p><strong>TIN:</strong> ${escapeHtml(companyProfile.tin)}</p></div><div class="detail-box"><h2>Bank details</h2><p><strong>Bank:</strong> ${escapeHtml(companyProfile.bankName)}</p><p><strong>Account name:</strong> ${escapeHtml(companyProfile.bankAccountName)}</p><p><strong>Account number:</strong> ${escapeHtml(companyProfile.bankAccountNumber)}</p><p><strong>Branch:</strong> ${escapeHtml(companyProfile.bankBranch)}</p></div></section>
+          ${inv.notes ? `<p class="small muted" style="margin: 6mm 0 0"><strong>Notes:</strong> ${escapeHtml(inv.notes).replace(/\n/g, '<br>')}</p>` : ''}
+          <section class="approval"><div class="approval-box"><p class="approval-title">Authorized signature</p><div class="signature-line">Name and signature</div></div><div class="approval-box"><p class="approval-title">Company stamp</p><div class="stamp-area">Stamp</div></div></section>
+        </div><footer class="footer"><span>Thank you for your business.</span><span>${escapeHtml(companyProfile.website)}</span></footer>
+      </main><script>window.onload = () => { window.print(); };</script></body></html>`);
+    invoiceWindow.document.close();
     setOpenMenu(null);
+    showToast(`${inv.id} opened for PDF download`, 'success');
   };
 
   const saveEdit = () => {
@@ -235,6 +314,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
       address: '',
       country: '',
       items: [{ desc: '', amount: 0 }],
+      notes: '',
       issued: new Date().toISOString().slice(0, 10),
       due: new Date().toISOString().slice(0, 10),
     });
@@ -260,7 +340,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
     setCreateForm((f) => ({ ...f, items: f.items.map((it, i) => (i === idx ? { ...it, [field]: field === 'amount' ? Number(value) : value } : it)) }));
   };
 
-  const formatCurrency = (v: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v);
+  const formatCurrency = (v: number) => `Tsh ${new Intl.NumberFormat('en-TZ', { maximumFractionDigits: 0 }).format(v)}`;
 
   const formatDate = (d: string) => (d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
 
@@ -283,7 +363,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
       due: formatDate(createForm.due),
       dueRaw: createForm.due,
       status: 'Pending',
-      notes: createForm.items.map((it) => `${it.desc} — ${formatCurrency(it.amount)}`).join('\n'),
+      notes: createForm.notes.trim(),
     };
     setInvoices((cur) => [newInv, ...cur]);
     notifySystem('Invoice created', `${newInv.id} was created for ${newInv.client}.`);
@@ -621,6 +701,10 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
               <label className="space-y-2 text-sm">
                 Due date
                 <input type="date" value={createForm.due} onChange={(e) => setCreateForm((f) => ({ ...f, due: e.target.value }))} className="w-full rounded-2xl border border-neutral-200 px-3 py-2" />
+              </label>
+              <label className="space-y-2 text-sm sm:col-span-2">
+                Notes (optional)
+                <textarea value={createForm.notes} onChange={(e) => setCreateForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Add a note for this invoice" className="w-full min-h-20 rounded-2xl border border-neutral-200 px-3 py-2" />
               </label>
             </div>
             <div className="mt-4 flex justify-end gap-3">
