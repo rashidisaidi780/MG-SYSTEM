@@ -10,6 +10,7 @@ import SignInPage from '@/pages/SignInPage';
 import ProjectsPage from '@/pages/ProjectsPage';
 import ClientsPage from '@/pages/ClientsPage';
 import UsersPage from '@/pages/UsersPage';
+import DepartmentsPage from '@/pages/DepartmentsPage';
 import WorkersPage from '@/pages/WorkersPage';
 import InvoicesPage from '@/pages/InvoicesPage';
 import BookingsPage from '@/pages/BookingsPage';
@@ -24,6 +25,7 @@ const pageMeta: Record<PageId, { title: string; subtitle: string }> = {
   projects: { title: 'Projects', subtitle: 'Manage all company projects' },
   clients: { title: 'Clients', subtitle: 'Your client directory' },
   users: { title: 'Users', subtitle: 'User accounts & system roles' },
+  departments: { title: 'Departments', subtitle: 'Manage departments & people counts' },
   workers: { title: 'Workers', subtitle: 'Team members & staff' },
   invoices: { title: 'Invoices', subtitle: 'Billing & financial records' },
   bookings: { title: 'Booking Orders', subtitle: 'Service bookings & appointments' },
@@ -75,6 +77,7 @@ export default function App() {
             {page === 'projects' && <ProjectsPage searchQuery={searchQuery} />}
             {page === 'clients' && <ClientsPage searchQuery={searchQuery} />}
             {page === 'users' && <UsersPage searchQuery={searchQuery} />}
+            {page === 'departments' && <DepartmentsPage searchQuery={searchQuery} />}
             {page === 'workers' && <WorkersPage searchQuery={searchQuery} />}
             {page === 'invoices' && <InvoicesPage searchQuery={searchQuery} />}
             {page === 'bookings' && <BookingsPage searchQuery={searchQuery} />}

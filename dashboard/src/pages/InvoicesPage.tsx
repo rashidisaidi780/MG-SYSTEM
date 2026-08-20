@@ -7,16 +7,15 @@ import logoImg from '@/assets/logo.jpeg';
 
 const companyProfile = {
   name: 'MAKEZY GROUP',
-  email: 'info@makezy.co.tz',
-  location: 'Plot 112, Dar es Salaam, Tanzania',
+  email: 'info@makezygroup.co.tz',
+  location: 'Dar es Salaam, Tanzania',
   phone: '+255 758 018 277 | +255 679 763 448',
-  website: 'www.makezy.co.tz',
+  website: 'www.makezygroup.co.tz',
   poBox: 'P.O. Box 12345, Dar es Salaam, Tanzania',
   tin: 'TIN-000000000',
   bankName: 'SELCOM BANK',
   bankAccountName: 'MAKEZY GROUP',
   bankAccountNumber: '0000000000',
-  bankBranch: 'Dar es Salaam Branch',
 };
 
 interface Invoice {
@@ -28,7 +27,7 @@ interface Invoice {
   phone?: string;
   address?: string;
   country?: string;
-  items?: { desc: string; amount: number }[];
+  items?: { desc: string; quantity: number; amount: number }[];
   amount: string;
   date: string;
   due: string;
@@ -92,7 +91,7 @@ const initialInvoices: Invoice[] = [
     phone: '+1 555-0142',
     address: '123 Main St, Suite 300',
     country: 'USA',
-    items: [{ desc: 'Design', amount: 8400 }],
+    items: [{ desc: 'Design', quantity: 1, amount: 8400 }],
     amount: 'Tsh 8,400',
     date: 'Aug 10, 2026',
     issuedRaw: '2026-08-10',
@@ -110,7 +109,7 @@ const initialInvoices: Invoice[] = [
     phone: '+1 555-0188',
     address: '456 Commerce Ave',
     country: 'USA',
-    items: [{ desc: 'Development', amount: 15200 }],
+    items: [{ desc: 'Development', quantity: 1, amount: 15200 }],
     amount: 'Tsh 15,200',
     date: 'Aug 08, 2026',
     issuedRaw: '2026-08-08',
@@ -161,7 +160,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
     phone: '',
     address: '',
     country: '',
-    items: [{ desc: '', amount: 0 }],
+    items: [{ desc: '', quantity: 1, amount: 0 }],
     notes: '',
     issued: new Date().toISOString().slice(0, 10),
     due: new Date().toISOString().slice(0, 10),
@@ -209,8 +208,8 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
   const handleDownload = (id: string) => {
     const inv = invoices.find((i) => i.id === id);
     if (!inv) return;
-    const items = inv.items?.length ? inv.items : [{ desc: 'Services', amount: Number(inv.amount.replace(/[^0-9.-]+/g, '')) || 0 }];
-    const itemsTotal = items.reduce((sum, item) => sum + item.amount, 0);
+    const items = inv.items?.length ? inv.items : [{ desc: 'Services', quantity: 1, amount: Number(inv.amount.replace(/[^0-9.-]+/g, '')) || 0 }];
+    const itemsTotal = items.reduce((sum, item) => sum + item.quantity * item.amount, 0);
     const invoiceWindow = window.open('', '_blank', 'width=900,height=1100');
     if (!invoiceWindow) {
       showToast('Please allow pop-ups to download the invoice as a PDF.', 'warning');
@@ -241,7 +240,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
         table { width: 100%; border-collapse: collapse; margin-top: 2mm; }
         th { padding: 7px 10px; color: #737373; background: #f5f5f5; font-size: 8px; letter-spacing: 1px; text-align: left; text-transform: uppercase; }
         td { padding: 8px 10px; border-bottom: 1px solid #e5e5e5; font-size: 10px; }
-        th:last-child, td:last-child { text-align: right; }
+        th:nth-child(n+2), td:nth-child(n+2) { text-align: right; }
         .total { display: flex; justify-content: flex-end; padding: 5mm 10px 6mm; border-bottom: 1px solid #171717; }
         .total-box { width: 72mm; }
         .total-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 10px; }
@@ -268,7 +267,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
             <div><div class="label">Billed to</div><div class="value"><strong>${escapeHtml(inv.company || inv.client)}</strong><br>${escapeHtml(inv.client)}<br>${escapeHtml(inv.address || '')}<br>${escapeHtml(inv.country || '')}<br>${escapeHtml(inv.email || '')} &nbsp; ${escapeHtml(inv.phone || '')}<br>TIN: ${escapeHtml(inv.tin || 'Not provided')}</div></div>
             <div><div class="label">Invoice details</div><div class="value">Issue date: <strong>${escapeHtml(inv.date)}</strong><br>Due date: <strong>${escapeHtml(inv.due)}</strong><br>Payment status: <strong>${escapeHtml(inv.status)}</strong></div></div>
           </section>
-          <table><thead><tr><th>Description</th><th>Amount</th></tr></thead><tbody>${items.map((item) => `<tr><td>${escapeHtml(item.desc || 'Service')}</td><td>${formatCurrency(item.amount)}</td></tr>`).join('')}</tbody></table>
+          <table><thead><tr><th>Description</th><th>Quantity</th><th>Unit price</th><th>Amount</th></tr></thead><tbody>${items.map((item) => `<tr><td>${escapeHtml(item.desc || 'Service')}</td><td>${item.quantity}</td><td>${formatCurrency(item.amount)}</td><td>${formatCurrency(item.quantity * item.amount)}</td></tr>`).join('')}</tbody></table>
           <div class="total"><div class="total-box"><div class="total-row"><span>Subtotal</span><span>${formatCurrency(itemsTotal)}</span></div><div class="total-row grand-total"><span>Total due</span><span>${formatCurrency(itemsTotal)}</span></div></div></div>
           <section class="details"><div class="detail-box"><h2>Company details</h2><p>${escapeHtml(companyProfile.email)}</p><p>${escapeHtml(companyProfile.phone)} &nbsp; | &nbsp; ${escapeHtml(companyProfile.website)}</p><p>${escapeHtml(companyProfile.location)}</p><p>${escapeHtml(companyProfile.poBox)}</p><p><strong>TIN:</strong> ${escapeHtml(companyProfile.tin)}</p></div><div class="detail-box"><h2>Bank details</h2><p><strong>Bank:</strong> ${escapeHtml(companyProfile.bankName)}</p><p><strong>Account name:</strong> ${escapeHtml(companyProfile.bankAccountName)}</p><p><strong>Account number:</strong> ${escapeHtml(companyProfile.bankAccountNumber)}</p><p><strong>Branch:</strong> ${escapeHtml(companyProfile.bankBranch)}</p></div></section>
           ${inv.notes ? `<p class="small muted" style="margin: 6mm 0 0"><strong>Notes:</strong> ${escapeHtml(inv.notes).replace(/\n/g, '<br>')}</p>` : ''}
@@ -282,7 +281,8 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
 
   const saveEdit = () => {
     if (!editInvoice) return;
-    setInvoices((current) => current.map((i) => (i.id === editInvoice.id ? editInvoice : i)));
+    const total = (editInvoice.items || []).reduce((sum, item) => sum + item.quantity * item.amount, 0);
+    setInvoices((current) => current.map((i) => (i.id === editInvoice.id ? { ...editInvoice, amount: formatCurrency(total) } : i)));
     setEditInvoice(null);
   };
 
@@ -313,7 +313,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
       phone: '',
       address: '',
       country: '',
-      items: [{ desc: '', amount: 0 }],
+      items: [{ desc: '', quantity: 1, amount: 0 }],
       notes: '',
       issued: new Date().toISOString().slice(0, 10),
       due: new Date().toISOString().slice(0, 10),
@@ -334,10 +334,10 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
     }));
   };
 
-  const addItem = () => setCreateForm((f) => ({ ...f, items: [...f.items, { desc: '', amount: 0 }] }));
+  const addItem = () => setCreateForm((f) => ({ ...f, items: [...f.items, { desc: '', quantity: 1, amount: 0 }] }));
   const removeItem = (idx: number) => setCreateForm((f) => ({ ...f, items: f.items.filter((_, i) => i !== idx) }));
-  const updateItem = (idx: number, field: 'desc' | 'amount', value: string) => {
-    setCreateForm((f) => ({ ...f, items: f.items.map((it, i) => (i === idx ? { ...it, [field]: field === 'amount' ? Number(value) : value } : it)) }));
+  const updateItem = (idx: number, field: 'desc' | 'quantity' | 'amount', value: string) => {
+    setCreateForm((f) => ({ ...f, items: f.items.map((it, i) => (i === idx ? { ...it, [field]: field === 'desc' ? value : Number(value) } : it)) }));
   };
 
   const formatCurrency = (v: number) => `Tsh ${new Intl.NumberFormat('en-TZ', { maximumFractionDigits: 0 }).format(v)}`;
@@ -346,7 +346,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
 
   const saveCreate = () => {
     if (!createForm.invoiceId || !createForm.items.length) return;
-    const total = createForm.items.reduce((s, it) => s + (Number(it.amount) || 0), 0);
+    const total = createForm.items.reduce((s, it) => s + (Number(it.quantity) || 0) * (Number(it.amount) || 0), 0);
     const newInv: Invoice = {
       id: createForm.invoiceId,
       client: clients.find((c) => c.id === createForm.clientId)!.name,
@@ -466,8 +466,8 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
       />
 
       {viewInvoice ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6 backdrop-blur-sm">
-          <div className="w-full max-w-xl rounded-[28px] bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/30 px-4 py-6 backdrop-blur-sm">
+          <div className="my-auto max-h-[calc(100vh-3rem)] w-full max-w-xl overflow-y-auto rounded-[28px] bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-neutral-400">View invoice</p>
@@ -533,7 +533,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
                 <div className="text-xs text-neutral-400">Items</div>
                 <ul className="list-disc pl-5 text-sm text-neutral-700">
                   {(viewInvoice.items || []).map((it, i) => (
-                    <li key={i}>{it.desc} — {formatCurrency(it.amount)}</li>
+                    <li key={i}>{it.desc} — {it.quantity} x {formatCurrency(it.amount)} = {formatCurrency(it.quantity * it.amount)}</li>
                   ))}
                 </ul>
               </div>
@@ -547,8 +547,8 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
       ) : null}
 
       {editInvoice ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6 backdrop-blur-sm">
-          <div className="w-full max-w-xl rounded-[28px] bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/30 px-4 py-6 backdrop-blur-sm">
+          <div className="my-auto max-h-[calc(100vh-3rem)] w-full max-w-xl overflow-y-auto rounded-[28px] bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-neutral-400">Edit invoice</p>
@@ -597,6 +597,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
                   {(editInvoice.items || []).map((it, idx) => (
                     <div key={idx} className="flex items-center gap-2">
                       <input value={it.desc} onChange={(e) => setEditInvoice({ ...editInvoice, items: (editInvoice.items || []).map((x, i) => i === idx ? { ...x, desc: e.target.value } : x) })} className="flex-1 rounded-2xl border border-neutral-200 px-3 py-2" />
+                      <input aria-label="Quantity" type="number" min="1" value={it.quantity} onChange={(e) => setEditInvoice({ ...editInvoice, items: (editInvoice.items || []).map((x, i) => i === idx ? { ...x, quantity: Math.max(1, Number(e.target.value)) } : x) })} className="w-24 rounded-2xl border border-neutral-200 px-3 py-2" />
                       <input value={String(it.amount)} onChange={(e) => setEditInvoice({ ...editInvoice, items: (editInvoice.items || []).map((x, i) => i === idx ? { ...x, amount: Number(e.target.value) } : x) })} className="w-32 rounded-2xl border border-neutral-200 px-3 py-2" />
                     </div>
                   ))}
@@ -634,8 +635,8 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
       ) : null}
 
       {createOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6 backdrop-blur-sm">
-          <div className="w-full max-w-3xl rounded-[28px] bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/30 px-4 py-6 backdrop-blur-sm">
+          <div className="my-auto max-h-[calc(100vh-3rem)] w-full max-w-3xl overflow-y-auto rounded-[28px] bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-neutral-400">Create invoice</p>
@@ -687,7 +688,8 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
                   {createForm.items.map((it, idx) => (
                     <div key={idx} className="flex items-center gap-3">
                       <input placeholder="Description" value={it.desc} onChange={(e) => updateItem(idx, 'desc', e.target.value)} className="flex-1 rounded-2xl border border-neutral-200 px-3 py-2" />
-                      <input placeholder="Amount" type="number" value={it.amount} onChange={(e) => updateItem(idx, 'amount', e.target.value)} className="w-32 rounded-2xl border border-neutral-200 px-3 py-2" />
+                      <input aria-label="Quantity" placeholder="Qty" type="number" min="1" value={it.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value)} className="w-20 rounded-2xl border border-neutral-200 px-3 py-2" />
+                      <input aria-label="Unit price" placeholder="Unit price" type="number" min="0" value={it.amount} onChange={(e) => updateItem(idx, 'amount', e.target.value)} className="w-32 rounded-2xl border border-neutral-200 px-3 py-2" />
                       <button onClick={() => removeItem(idx)} className="p-2 text-red-500 rounded-lg">Remove</button>
                     </div>
                   ))}

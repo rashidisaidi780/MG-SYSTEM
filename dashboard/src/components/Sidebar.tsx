@@ -12,6 +12,7 @@ import {
   Boxes,
   LogOut,
   Activity,
+  Building2,
 } from 'lucide-react';
 import logoImg from '@/assets/logo.jpeg';
 
@@ -23,6 +24,7 @@ export type PageId =
   | 'projects'
   | 'clients'
   | 'users'
+  | 'departments'
   | 'workers'
   | 'invoices'
   | 'bookings'
@@ -50,6 +52,7 @@ const NAV: NavGroup[] = [
       { id: 'projects', label: 'Projects', icon: FolderKanban },
       { id: 'clients', label: 'Clients', icon: Users },
       { id: 'users', label: 'Users', icon: UserCog },
+      { id: 'departments', label: 'Departments', icon: Building2 },
     ],
   },
   {
