@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, MoreHorizontal, Mail, Phone, Edit3, Trash2 } from 'lucide-react';
+import { Plus, MoreHorizontal, Mail, Phone, Edit3, Trash2, Building2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
@@ -7,6 +7,7 @@ import { notifySystem } from '@/utils/systemNotifications';
 interface Worker {
   id: string;
   name: string;
+  department: string;
   tinNumber: string;
   nidaNumber: string;
   email: string;
@@ -24,6 +25,7 @@ const initialWorkers: Worker[] = [
   {
     id: 'sarah-chen',
     name: 'Sarah Chen',
+    department: 'Finance',
     tinNumber: 'TIN-783421',
     nidaNumber: 'NIDA-210987',
     email: 'sarah@makezy.com',
@@ -39,6 +41,7 @@ const initialWorkers: Worker[] = [
   {
     id: 'james-park',
     name: 'James Park',
+    department: 'Information Technology',
     tinNumber: 'TIN-684212',
     nidaNumber: 'NIDA-310652',
     email: 'james@makezy.com',
@@ -54,6 +57,7 @@ const initialWorkers: Worker[] = [
   {
     id: 'anna-wright',
     name: 'Anna Wright',
+    department: 'Human Resources',
     tinNumber: 'TIN-847193',
     nidaNumber: 'NIDA-410723',
     email: 'anna@makezy.com',
@@ -74,9 +78,12 @@ const statusStyles: Record<Worker['status'], string> = {
   Contract: 'bg-blue-50 text-blue-700',
 };
 
+const departments = ['Human Resources', 'Information Technology', 'Finance', 'Operations'];
+
 const emptyWorker: Worker = {
   id: '',
   name: '',
+  department: '',
   tinNumber: '',
   nidaNumber: '',
   email: '',
@@ -161,7 +168,7 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
   };
 
   const saveWorker = () => {
-    if (!formWorker.name.trim() || !formWorker.tinNumber.trim() || !formWorker.nidaNumber.trim() || !formWorker.email.trim() || !formWorker.phone.trim() || !formWorker.contractStartDate.trim() || !formWorker.contractEndDate.trim()) {
+    if (!formWorker.name.trim() || !formWorker.department.trim() || !formWorker.tinNumber.trim() || !formWorker.nidaNumber.trim() || !formWorker.email.trim() || !formWorker.phone.trim() || !formWorker.contractStartDate.trim() || !formWorker.contractEndDate.trim()) {
       showToast('Please fill in all required fields', 'warning');
       return;
     }
@@ -250,6 +257,10 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
                 <Phone size={14} className="text-neutral-400" />
                 <span>{worker.phone}</span>
               </div>
+              <div className="flex items-center gap-2">
+                <Building2 size={14} className="text-neutral-400" />
+                <span>{worker.department}</span>
+              </div>
               <div className="text-sm text-neutral-500">
                 <p className="font-medium text-neutral-700">Salary</p>
                 <p>{worker.salary}</p>
@@ -323,6 +334,10 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
               <div className="rounded-3xl bg-neutral-50 p-5">
                 <p className="text-xs uppercase tracking-[0.2em] text-neutral-400">Salary</p>
                 <p className="mt-2 font-semibold text-neutral-900">{selectedWorker.salary}</p>
+              </div>
+              <div className="rounded-3xl bg-neutral-50 p-5">
+                <p className="text-xs uppercase tracking-[0.2em] text-neutral-400">Department</p>
+                <p className="mt-2 font-semibold text-neutral-900">{selectedWorker.department}</p>
               </div>
               <div className="rounded-3xl bg-neutral-50 p-5">
                 <p className="text-xs uppercase tracking-[0.2em] text-neutral-400">Contact</p>
@@ -414,6 +429,21 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
                   className="w-full rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
                   placeholder="Enter NIDA number"
                 />
+              </label>
+              <label className="space-y-2 text-sm font-medium text-neutral-700">
+                Department
+                <select
+                  value={formWorker.department}
+                  onChange={(event) => handleFormChange('department', event.target.value)}
+                  className="w-full rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
+                >
+                  <option value="">Choose department</option>
+                  {departments.map((department) => (
+                    <option key={department} value={department}>
+                      {department}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
                 Phone number

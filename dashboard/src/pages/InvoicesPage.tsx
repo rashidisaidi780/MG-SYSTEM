@@ -16,6 +16,7 @@ const companyProfile = {
   bankName: 'SELCOM BANK',
   bankAccountName: 'MAKEZY GROUP',
   bankAccountNumber: '0000000000',
+  bankBranch: 'Dar es Salaam',
 };
 
 interface Invoice {
@@ -273,7 +274,15 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
           ${inv.notes ? `<p class="small muted" style="margin: 6mm 0 0"><strong>Notes:</strong> ${escapeHtml(inv.notes).replace(/\n/g, '<br>')}</p>` : ''}
           <section class="approval"><div class="approval-box"><p class="approval-title">Authorized signature</p><div class="signature-line">Name and signature</div></div><div class="approval-box"><p class="approval-title">Company stamp</p><div class="stamp-area">Stamp</div></div></section>
         </div><footer class="footer"><span>Thank you for your business.</span><span>${escapeHtml(companyProfile.website)}</span></footer>
-      </main><script>window.onload = () => { window.print(); };</script></body></html>`);
+      </main><script>
+        const printInvoice = () => { window.focus(); window.print(); };
+        if (document.readyState === 'complete') {
+          printInvoice();
+        } else {
+          window.addEventListener('load', printInvoice, { once: true });
+          window.setTimeout(printInvoice, 1000);
+        }
+      </script></body></html>`);
     invoiceWindow.document.close();
     setOpenMenu(null);
     showToast(`${inv.id} opened for PDF download`, 'success');

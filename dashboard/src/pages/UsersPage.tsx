@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Mail, Key, Edit3, Trash2, ShieldCheck } from 'lucide-react';
+import { Plus, Mail, Key, Edit3, Trash2, ShieldCheck, Building2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
@@ -29,11 +29,14 @@ const systemAreas: AccessArea[] = [
   'Office Orders',
 ];
 
+const departments = ['Human Resources', 'Information Technology', 'Finance', 'Operations'];
+
 interface UserAccount {
   id: string;
   username: string;
   email: string;
   password: string;
+  department: string;
   role: 'Admin' | 'Manager' | 'Sub User' | 'Accountant';
   status: 'Active' | 'Inactive';
   date: string;
@@ -46,6 +49,7 @@ const initialUsers: UserAccount[] = [
     username: 'admin',
     email: 'admin@makezy.com',
     password: 'admin123',
+    department: 'Information Technology',
     role: 'Admin',
     status: 'Active',
     date: '2026-07-01',
@@ -66,6 +70,7 @@ const initialUsers: UserAccount[] = [
     username: 'jane.doe',
     email: 'jane.doe@makezy.com',
     password: 'password1',
+    department: 'Operations',
     role: 'Manager',
     status: 'Active',
     date: '2026-08-02',
@@ -86,6 +91,7 @@ const initialUsers: UserAccount[] = [
     username: 'sam.smith',
     email: 'sam.smith@makezy.com',
     password: 'passw0rd',
+    department: 'Finance',
     role: 'Sub User',
     status: 'Inactive',
     date: '2026-06-22',
@@ -108,6 +114,7 @@ const emptyUser: UserAccount = {
   username: '',
   email: '',
   password: '',
+  department: '',
   role: 'Sub User',
   status: 'Active',
   date: '',
@@ -185,7 +192,7 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
   };
 
   const handleSave = () => {
-    if (!formUser.username.trim() || !formUser.email.trim() || !formUser.password.trim()) {
+    if (!formUser.username.trim() || !formUser.email.trim() || !formUser.password.trim() || !formUser.department.trim()) {
       showToast('Please fill in all required fields', 'warning');
       return;
     }
@@ -280,6 +287,10 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
               <div className="flex items-center gap-2">
                 <Key size={14} className="text-neutral-400" />
                 <span>••••••••</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Building2 size={14} className="text-neutral-400" />
+                <span>{user.department}</span>
               </div>
             </div>
 
@@ -382,6 +393,21 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
                   <option value="Manager">Manager</option>
                   <option value="Sub User">Sub User</option>
                   <option value="Accountant">Accountant</option>
+                </select>
+              </label>
+              <label className="space-y-2 text-sm font-medium text-neutral-700">
+                Department
+                <select
+                  value={formUser.department}
+                  onChange={(event) => handleChange('department', event.target.value)}
+                  className="w-full rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
+                >
+                  <option value="">Choose department</option>
+                  {departments.map((department) => (
+                    <option key={department} value={department}>
+                      {department}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
