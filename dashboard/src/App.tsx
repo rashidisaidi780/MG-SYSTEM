@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Sidebar, { type PageId } from '@/components/Sidebar';
 import Topbar from '@/components/Topbar';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import ToastContainer from '@/components/ToastContainer';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
+import { authService } from '@/services';
 import DashboardPage from '@/pages/DashboardPage';
 import SignInPage from '@/pages/SignInPage';
 import ProjectsPage from '@/pages/ProjectsPage';
@@ -19,6 +20,7 @@ import NotificationsPage from '@/pages/NotificationsPage';
 import EventsPage from '@/pages/EventsPage';
 
 const pageMeta: Record<PageId, { title: string; subtitle: string }> = {
+  signin: { title: 'Sign in', subtitle: 'Access your workspace' },
   dashboard: { title: 'Dashboard', subtitle: 'Company overview & key metrics' },
   events: { title: 'Event & Updates', subtitle: 'Latest system events and updates' },
   notifications: { title: 'Notifications', subtitle: 'System notifications & alerts' },
@@ -38,7 +40,26 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentUser, setCurrentUser] = useState<{ username?: string; email?: string; name?: string; type?: string; role?: string; permissions?: Record<string, string> | string[] } | null>(null);
   const meta = pageMeta[page];
+
+  // Load user from localStorage on mount or page change (for signin)
+  useEffect(() => {
+    if (page !== 'signin') {
+      try {
+        const stored = localStorage.getItem('mg_user');
+        if (stored) {
+          setCurrentUser(JSON.parse(stored));
+        }
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  }, [page]);
+
+  const handleSignIn = () => {
+    setPage('dashboard');
+  };
 
   const handleRefresh = () => {
     setIsLoading(true);
@@ -49,8 +70,41 @@ export default function App() {
     }, 1200);
   };
 
+  const canEditCurrentPage = () => {
+    if (currentUser?.role === 'Admin' || (Array.isArray(currentUser?.permissions) && currentUser.permissions.includes('*'))) {
+      return true;
+    }
+
+    const areaByPage: Partial<Record<PageId, string>> = {
+      projects: 'Projects',
+      clients: 'Clients',
+      users: 'Users',
+      departments: 'Departments',
+      workers: 'Workers',
+      invoices: 'Invoices',
+      bookings: 'Booking Orders',
+      officeOrders: 'Office Orders',
+      events: 'Event & Updates',
+      notifications: 'Notifications',
+    };
+    const area = areaByPage[page];
+    if (!area || Array.isArray(currentUser?.permissions)) return false;
+    return ['Edit', 'Both'].includes(currentUser?.permissions?.[area] || 'None');
+  };
+
+  const blockReadOnlyMutation = (event: React.MouseEvent<HTMLElement>) => {
+    const clickedButton = (event.target as HTMLElement).closest('button');
+    const buttonLabel = clickedButton?.getAttribute('title') || clickedButton?.textContent || '';
+    const mutation = (event.target as HTMLElement).closest('[data-mutation-control]') ||
+      (clickedButton && /\b(add|create|delete|edit|new|remove|save|update)\b/i.test(buttonLabel) ? clickedButton : null);
+    if (mutation && !canEditCurrentPage()) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  };
+
   if (page === 'signin') {
-    return <SignInPage onSignIn={() => setPage('dashboard')} />;
+    return <SignInPage onSignIn={handleSignIn} />;
   }
 
   return (
@@ -67,10 +121,11 @@ export default function App() {
             setPage(nextPage);
           }}
           onLogoutRequest={() => setLogoutConfirmOpen(true)}
+          currentUser={currentUser || undefined}
         />
         <main className="flex-1 min-w-0">
           <Topbar title={meta.title} subtitle={meta.subtitle} onNavigate={setPage} onRefresh={handleRefresh} isLoading={isLoading} searchQuery={searchQuery} onSearchChange={setSearchQuery} />
-          <div key={page} className="min-h-[calc(100vh-4rem)] animate-book-page">
+          <div key={page} onClickCapture={blockReadOnlyMutation} className="min-h-[calc(100vh-4rem)] animate-book-page">
             {page === 'dashboard' && <DashboardPage />}
             {page === 'events' && <EventsPage searchQuery={searchQuery} />}
             {page === 'notifications' && <NotificationsPage refreshKey={refreshKey} />}
@@ -95,6 +150,9 @@ export default function App() {
         destructive
         onConfirm={() => {
           setLogoutConfirmOpen(false);
+          void authService.logout();
+          setCurrentUser(null);
+          localStorage.removeItem('mg_user');
           setPage('signin');
         }}
         onCancel={() => setLogoutConfirmOpen(false)}

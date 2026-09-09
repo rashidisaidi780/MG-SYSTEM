@@ -3,6 +3,7 @@ import { Plus, MoreHorizontal, Filter, Edit3, Trash2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
+import { usePersistentState } from '@/utils/persistentState';
 
 interface ClientOption {
   id: string;
@@ -22,16 +23,18 @@ interface Project {
   description: string;
 }
 
-const clients: ClientOption[] = [
+const clients: ClientOption[] = [];
+/*
   { id: 'acme', name: 'Acme Co.' },
   { id: 'nimbus', name: 'Nimbus Inc.' },
   { id: 'lumen', name: 'Lumen Studio' },
   { id: 'vertex', name: 'Vertex Ltd.' },
   { id: 'orbit', name: 'Orbit Systems' },
   { id: 'pulse', name: 'Pulse Media' },
-];
+]; */
 
-const initialProjects: Project[] = [
+const initialProjects: Project[] = [];
+/*
   {
     id: 'brand-redesign',
     name: 'Brand Redesign',
@@ -68,7 +71,7 @@ const initialProjects: Project[] = [
     endDate: '2026-08-18',
     description: 'Refresh website layout and performance for a new launch.',
   },
-];
+]; */
 
 const statusStyles: Record<Project['status'], string> = {
   'In Progress': 'bg-neutral-100 text-neutral-700',
@@ -81,7 +84,7 @@ const statusStyles: Record<Project['status'], string> = {
 const emptyProject: Project = {
   id: '',
   name: '',
-  clientId: clients[0].id,
+  clientId: '',
   budget: '',
   status: 'Planning',
   progress: 0,
@@ -92,7 +95,7 @@ const emptyProject: Project = {
 };
 
 export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: string }) {
-  const [projectList, setProjectList] = useState<Project[]>(initialProjects);
+  const [projectList, setProjectList] = usePersistentState<Project[]>('projects', initialProjects);
   const [formOpen, setFormOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
@@ -189,6 +192,7 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
             <Filter size={15} /> Filter
           </button>
           <button
+            data-mutation-control
             onClick={() => openForm('add')}
             className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-black text-white text-sm font-semibold hover:bg-neutral-900 transition-all duration-200 animate-book-button"
           >
@@ -265,6 +269,7 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  data-mutation-control
                   onClick={() => {
                     openForm('edit', activeProject);
                     setDetailOpen(false);
@@ -274,6 +279,7 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
                   Edit
                 </button>
                 <button
+                  data-mutation-control
                   onClick={() => setPendingDeleteProjectId(activeProject.id)}
                   className="rounded-3xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-100 transition"
                 >
@@ -357,17 +363,12 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
                 Client
-                <select
+                <input
                   value={formProject.clientId}
                   onChange={(event) => handleFormChange('clientId', event.target.value)}
+                  placeholder="Enter client name"
                   className="w-full rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
-                >
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
                 Project budget
@@ -450,6 +451,7 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
                 Cancel
               </button>
               <button
+                data-mutation-control
                 onClick={saveProject}
                 className="rounded-3xl bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-900 transition"
               >

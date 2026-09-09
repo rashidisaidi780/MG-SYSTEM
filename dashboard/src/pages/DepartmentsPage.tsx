@@ -3,6 +3,7 @@ import { Edit3, Plus, Trash2, Users, MoreHorizontal } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
+import { usePersistentState } from '@/utils/persistentState';
 
 interface Department {
   id: string;
@@ -13,12 +14,7 @@ interface Department {
   status: 'Active' | 'Inactive';
 }
 
-const initialDepartments: Department[] = [
-  { id: 'dept-hr', name: 'Human Resources', description: 'People operations, hiring, and employee support.', head: 'Anna Wright', peopleCount: 4, status: 'Active' },
-  { id: 'dept-it', name: 'Information Technology', description: 'Technology, systems, devices, and technical support.', head: 'James Park', peopleCount: 6, status: 'Active' },
-  { id: 'dept-finance', name: 'Finance', description: 'Budgeting, payments, accounting, and financial reporting.', head: 'Sarah Chen', peopleCount: 3, status: 'Active' },
-  { id: 'dept-operations', name: 'Operations', description: 'Daily business operations and service delivery.', head: 'Mia Lopez', peopleCount: 8, status: 'Active' },
-];
+const initialDepartments: Department[] = [];
 
 const emptyDepartment: Department = {
   id: '',
@@ -30,7 +26,7 @@ const emptyDepartment: Department = {
 };
 
 export default function DepartmentsPage({ searchQuery = '' }: { searchQuery?: string }) {
-  const [departments, setDepartments] = useState<Department[]>(initialDepartments);
+  const [departments, setDepartments] = usePersistentState<Department[]>('departments', initialDepartments);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [formDepartment, setFormDepartment] = useState<Department>(emptyDepartment);
@@ -94,7 +90,7 @@ export default function DepartmentsPage({ searchQuery = '' }: { searchQuery?: st
           <p className="text-sm text-neutral-400 font-medium">{filteredDepartments.length} departments</p>
           <h2 className="text-2xl font-semibold">Department management</h2>
         </div>
-        <button onClick={() => openForm('add')} className="flex items-center gap-2 rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-800">
+        <button data-mutation-control onClick={() => openForm('add')} className="flex items-center gap-2 rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-neutral-800">
           <Plus size={16} /> Add Department
         </button>
       </div>
@@ -117,8 +113,8 @@ export default function DepartmentsPage({ searchQuery = '' }: { searchQuery?: st
             <div className="mt-4 flex items-center justify-between border-t border-neutral-100 pt-4">
               <button onClick={() => setViewDepartment(department)} className="text-xs font-semibold text-black hover:underline">View details</button>
               <div className="flex items-center gap-1">
-                <button onClick={() => openForm('edit', department)} className="rounded-md p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100" title="Edit department"><Edit3 size={16} /></button>
-                <button onClick={() => setPendingDeleteId(department.id)} className="rounded-md p-1.5 text-red-500 transition-colors hover:bg-red-50" title="Delete department"><Trash2 size={16} /></button>
+                <button data-mutation-control onClick={() => openForm('edit', department)} className="rounded-md p-1.5 text-neutral-500 transition-colors hover:bg-neutral-100" title="Edit department"><Edit3 size={16} /></button>
+                <button data-mutation-control onClick={() => setPendingDeleteId(department.id)} className="rounded-md p-1.5 text-red-500 transition-colors hover:bg-red-50" title="Delete department"><Trash2 size={16} /></button>
                 <button onClick={() => setViewDepartment(department)} className="rounded-md p-1.5 text-neutral-400 transition-colors hover:bg-neutral-100" title="View department"><MoreHorizontal size={16} /></button>
               </div>
             </div>
@@ -152,7 +148,7 @@ export default function DepartmentsPage({ searchQuery = '' }: { searchQuery?: st
           <div className="my-auto max-h-[calc(100vh-3rem)] w-full max-w-2xl overflow-y-auto rounded-[28px] bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4 mb-6"><div><p className="text-xs uppercase tracking-[0.24em] text-neutral-400">{formMode === 'add' ? 'New department' : 'Edit department'}</p><h3 className="mt-1 text-xl font-semibold">{formMode === 'add' ? 'Add department details' : 'Update department details'}</h3></div><button onClick={closeForm} className="rounded-2xl px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-100">Cancel</button></div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><label className="space-y-2 text-sm font-medium text-neutral-700">Department name<input value={formDepartment.name} onChange={(e) => setFormDepartment((current) => ({ ...current, name: e.target.value }))} placeholder="Enter department name" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" /></label><label className="space-y-2 text-sm font-medium text-neutral-700">Department head<input value={formDepartment.head} onChange={(e) => setFormDepartment((current) => ({ ...current, head: e.target.value }))} placeholder="Enter department head" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" /></label><label className="space-y-2 text-sm font-medium text-neutral-700">Number of people<input type="number" min="0" value={formDepartment.peopleCount} onChange={(e) => setFormDepartment((current) => ({ ...current, peopleCount: Number(e.target.value) }))} className="w-full rounded-2xl border border-neutral-200 px-3 py-2" /></label><label className="space-y-2 text-sm font-medium text-neutral-700">Status<select value={formDepartment.status} onChange={(e) => setFormDepartment((current) => ({ ...current, status: e.target.value as Department['status'] }))} className="w-full rounded-2xl border border-neutral-200 px-3 py-2"><option>Active</option><option>Inactive</option></select></label><label className="space-y-2 text-sm font-medium text-neutral-700 sm:col-span-2">Description<textarea value={formDepartment.description} onChange={(e) => setFormDepartment((current) => ({ ...current, description: e.target.value }))} placeholder="Describe this department" className="min-h-28 w-full resize-y rounded-2xl border border-neutral-200 px-3 py-2" /></label></div>
-            <div className="mt-6 flex justify-end gap-3"><button onClick={closeForm} className="rounded-3xl border border-neutral-200 px-4 py-2 text-sm">Cancel</button><button onClick={handleSave} className="rounded-3xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800">{formMode === 'add' ? 'Create department' : 'Save changes'}</button></div>
+            <div className="mt-6 flex justify-end gap-3"><button onClick={closeForm} className="rounded-3xl border border-neutral-200 px-4 py-2 text-sm">Cancel</button><button data-mutation-control onClick={handleSave} className="rounded-3xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800">{formMode === 'add' ? 'Create department' : 'Save changes'}</button></div>
           </div>
         </div>
       ) : null}

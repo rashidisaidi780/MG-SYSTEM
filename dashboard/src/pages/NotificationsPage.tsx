@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Bell, Trash2, CheckCircle } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import type { SystemNotificationEventDetail } from '@/utils/systemNotifications';
+import { usePersistentState } from '@/utils/persistentState';
 
 interface Notification {
   id: string;
@@ -11,13 +12,10 @@ interface Notification {
   read: boolean;
 }
 
-const initial: Notification[] = [
-  { id: 'sys-1', title: 'System started', message: 'Management dashboard is ready.', time: 'now', read: false },
-  { id: 'sys-2', title: 'Activity feed enabled', message: 'All system actions are now tracked here.', time: 'now', read: true },
-];
+const initial: Notification[] = [];
 
 export default function NotificationsPage({ refreshKey, searchQuery = '' }: { refreshKey?: number; searchQuery?: string }) {
-  const [items, setItems] = useState<Notification[]>(initial);
+  const [items, setItems] = usePersistentState<Notification[]>('notifications', initial);
   const [confirmDelete, setConfirmDelete] = useState<{ kind: 'all' | 'one'; id?: string } | null>(null);
 
   useEffect(() => {
@@ -41,18 +39,9 @@ export default function NotificationsPage({ refreshKey, searchQuery = '' }: { re
     return () => window.removeEventListener('system-notification', handleSystemNotification);
   }, []);
 
-  // when parent signals refresh, simulate fetching and add a refresh note
   useEffect(() => {
     if (refreshKey === undefined) return;
-    const id = `n-refresh-${Date.now()}`;
-    const note: Notification = {
-      id,
-      title: 'Data refreshed',
-      message: `Data refreshed at ${new Date().toLocaleTimeString()}`,
-      time: 'now',
-      read: false,
-    };
-    setItems((s) => [note, ...s]);
+    setItems((current) => [...current]);
   }, [refreshKey]);
 
   const markRead = (id: string) => {

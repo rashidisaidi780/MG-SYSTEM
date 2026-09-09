@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, Mail, Key, Edit3, Trash2, ShieldCheck, Building2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
+import { adminService } from '@/services/admin';
 
 type AccessLevel = 'None' | 'View' | 'Edit' | 'Both';
 
@@ -11,8 +12,10 @@ type AccessArea =
   | 'Projects'
   | 'Clients'
   | 'Users'
+  | 'Departments'
   | 'Workers'
   | 'Invoices'
+  | 'Event & Updates'
   | 'Notifications'
   | 'Booking Orders'
   | 'Office Orders';
@@ -22,14 +25,16 @@ const systemAreas: AccessArea[] = [
   'Projects',
   'Clients',
   'Users',
+  'Departments',
   'Workers',
   'Invoices',
+  'Event & Updates',
   'Notifications',
   'Booking Orders',
   'Office Orders',
 ];
 
-const departments = ['Human Resources', 'Information Technology', 'Finance', 'Operations'];
+const departments: string[] = [];
 
 interface UserAccount {
   id: string;
@@ -43,7 +48,8 @@ interface UserAccount {
   access: Record<AccessArea, AccessLevel>;
 }
 
-const initialUsers: UserAccount[] = [
+const initialUsers: UserAccount[] = [];
+/*
   {
     id: 'user-1',
     username: 'admin',
@@ -107,7 +113,7 @@ const initialUsers: UserAccount[] = [
       'Office Orders': 'None',
     },
   },
-];
+]; */
 
 const emptyUser: UserAccount = {
   id: '',
@@ -123,8 +129,10 @@ const emptyUser: UserAccount = {
     Projects: 'None',
     Clients: 'None',
     Users: 'None',
+    Departments: 'None',
     Workers: 'None',
     Invoices: 'None',
+    'Event & Updates': 'None',
     Notifications: 'None',
     'Booking Orders': 'None',
     'Office Orders': 'None',
@@ -133,6 +141,7 @@ const emptyUser: UserAccount = {
 
 export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [users, setUsers] = useState<UserAccount[]>(initialUsers);
+  const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [formUser, setFormUser] = useState<UserAccount>(emptyUser);
@@ -141,6 +150,32 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
   const [accessUser, setAccessUser] = useState<UserAccount | null>(null);
   const [pendingDeleteUserId, setPendingDeleteUserId] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  const loadUsers = async () => {
+    try {
+      setIsLoading(true);
+      const response = await adminService.getAllUsers();
+      setUsers((response.data || []).map((user: any) => ({
+        id: user.user_id,
+        username: user.user_name,
+        email: user.user_email,
+        password: '',
+        department: user.department_id ? String(user.department_id) : '',
+        role: user.user_role,
+        status: user.user_status,
+        date: user.created_at,
+        access: { ...emptyUser.access, ...(user.permissions || {}) },
+      })));
+    } catch (error) {
+      showToast('Unable to load users from the server', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadUsers();
+  }, []);
 
   const filteredUsers = useMemo(() => {
     if (!searchQuery.trim()) return users;
@@ -187,38 +222,63 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
 
   const saveAccessControl = () => {
     if (!accessUser) return;
-    setUsers((current) => current.map((user) => (user.id === accessUser.id ? accessUser : user)));
-    closeAccessControl();
+    void adminService.updateUser(accessUser.id, { permissions: accessUser.access })
+      .then(() => {
+        setUsers((current) => current.map((user) => (user.id === accessUser.id ? accessUser : user)));
+        showToast('Permissions updated successfully', 'success');
+        closeAccessControl();
+      })
+      .catch(() => showToast('Unable to save permissions', 'error'));
   };
 
   const handleSave = () => {
-    if (!formUser.username.trim() || !formUser.email.trim() || !formUser.password.trim() || !formUser.department.trim()) {
+    if (!formUser.username.trim() || !formUser.email.trim() || (formMode === 'add' && !formUser.password.trim())) {
       showToast('Please fill in all required fields', 'warning');
       return;
     }
 
     if (formMode === 'add') {
-      const newUser = { ...formUser, id: `user-${Date.now()}`, date: new Date().toISOString().slice(0, 10) };
-      setUsers((current) => [newUser, ...current]);
-      notifySystem('User added', `${newUser.username} was added to the system.`);
-      showToast(`User "${newUser.username}" added successfully`, 'success');
+      void adminService.createUser({
+        user_id: `user-${Date.now()}`,
+        user_name: formUser.username,
+        user_email: formUser.email,
+        user_password: formUser.password,
+        user_role: formUser.role === 'Sub User' || formUser.role === 'Accountant' ? formUser.role : formUser.role,
+        user_status: formUser.status,
+        permissions: formUser.access,
+      }).then(() => {
+        notifySystem('User added', `${formUser.username} was added to the system.`);
+        showToast(`User "${formUser.username}" added successfully`, 'success');
+        closeForm();
+        void loadUsers();
+      }).catch(() => showToast('Unable to create user on the server', 'error'));
     } else {
-      setUsers((current) => current.map((user) => (user.id === formUser.id ? { ...formUser } : user)));
-      notifySystem('User updated', `${formUser.username}'s account details were updated.`);
-      showToast(`User "${formUser.username}" updated successfully`, 'success');
+      void adminService.updateUser(formUser.id, {
+        user_name: formUser.username,
+        user_email: formUser.email,
+        user_password: formUser.password || undefined,
+        user_role: formUser.role,
+        user_status: formUser.status,
+        permissions: formUser.access,
+      }).then(() => {
+        notifySystem('User updated', `${formUser.username}'s account details were updated.`);
+        showToast(`User "${formUser.username}" updated successfully`, 'success');
+        closeForm();
+        void loadUsers();
+      }).catch(() => showToast('Unable to update user on the server', 'error'));
     }
-
-    closeForm();
   };
 
   const handleDelete = (userId: string) => {
     const userToDelete = users.find((user) => user.id === userId);
-    setUsers((current) => current.filter((user) => user.id !== userId));
-    if (userToDelete) {
-      notifySystem('User deleted', `${userToDelete.username} was removed from the system.`);
-      showToast(`User "${userToDelete.username}" deleted`, 'info');
-    }
-    setPendingDeleteUserId(null);
+    void adminService.deleteUser(userId).then(() => {
+      if (userToDelete) {
+        notifySystem('User deleted', `${userToDelete.username} was removed from the system.`);
+        showToast(`User "${userToDelete.username}" deleted`, 'info');
+      }
+      setPendingDeleteUserId(null);
+      void loadUsers();
+    }).catch(() => showToast('Unable to delete user from the server', 'error'));
   };
 
   return (
@@ -229,6 +289,7 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
           <h2 className="text-2xl font-semibold">User management</h2>
         </div>
         <button
+          data-mutation-control
           onClick={() => openForm('add')}
           className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-black text-white text-sm font-semibold shadow-lg shadow-black/10 hover:bg-neutral-900 transition-all duration-200"
         >
@@ -236,6 +297,7 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
         </button>
       </div>
 
+      {isLoading ? <p className="text-sm text-neutral-500">Loading users...</p> : null}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {filteredUsers.map((user) => (
           <div
@@ -253,6 +315,7 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  data-mutation-control
                   onClick={() => openForm('edit', user)}
                   className="p-2 rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-black transition-colors"
                   title="Edit user"
@@ -260,6 +323,7 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
                   <Edit3 size={16} />
                 </button>
                 <button
+                  data-mutation-control
                   onClick={() => openAccessControl(user)}
                   className="p-2 rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-black transition-colors"
                   title="Access control"
@@ -267,6 +331,7 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
                   <ShieldCheck size={16} />
                 </button>
                 <button
+                  data-mutation-control
                   onClick={() => setPendingDeleteUserId(user.id)}
                   className="p-2 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
                   title="Delete user"
@@ -397,18 +462,12 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
                 Department
-                <select
+                <input
                   value={formUser.department}
                   onChange={(event) => handleChange('department', event.target.value)}
+                  placeholder="Enter department"
                   className="w-full rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
-                >
-                  <option value="">Choose department</option>
-                  {departments.map((department) => (
-                    <option key={department} value={department}>
-                      {department}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
                 Status
@@ -431,6 +490,7 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
                 Cancel
               </button>
               <button
+                data-mutation-control
                 onClick={handleSave}
                 className="rounded-3xl bg-black text-white px-5 py-3 text-sm font-semibold hover:bg-neutral-900 transition"
               >
@@ -515,6 +575,7 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
                   Cancel
                 </button>
                 <button
+                  data-mutation-control
                   onClick={saveAccessControl}
                   className="rounded-3xl bg-black text-white px-5 py-3 text-sm font-semibold hover:bg-neutral-900 transition"
                 >

@@ -1,6 +1,7 @@
 import { useMemo, useState, type ChangeEvent } from 'react';
 import { ImagePlus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
+import { usePersistentState } from '@/utils/persistentState';
 
 interface EventPost {
   id: string;
@@ -27,7 +28,7 @@ const emptyForm = {
 };
 
 export default function EventsPage({ searchQuery = '' }: { searchQuery?: string }) {
-  const [posts, setPosts] = useState<EventPost[]>(initialPosts);
+  const [posts, setPosts] = usePersistentState<EventPost[]>('events', initialPosts);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
@@ -165,6 +166,7 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
           <h2 className="text-2xl font-semibold">Event & Updates</h2>
         </div>
         <button
+          data-mutation-control
           onClick={openCreate}
           className="flex items-center gap-2 rounded-2xl bg-black px-5 py-3 text-sm font-semibold text-white transition hover:bg-neutral-900"
         >
@@ -237,6 +239,7 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
 
               <div className="mt-5 flex items-center justify-between gap-3 border-t border-neutral-100 pt-4">
                 <button
+                  data-mutation-control
                   onClick={() => toggleNewStatus(post.id)}
                   className={`rounded-2xl px-3 py-2 text-xs font-semibold transition ${
                     post.isNew
@@ -248,6 +251,7 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
                 </button>
 
                 <button
+                  data-mutation-control
                   onClick={() => removePost(post.id)}
                   className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-100"
                 >
@@ -368,6 +372,7 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
                 Cancel
               </button>
               <button
+                data-mutation-control
                 onClick={publishPost}
                 className="rounded-3xl bg-black px-5 py-3 text-sm font-semibold text-white transition hover:bg-neutral-900"
               >

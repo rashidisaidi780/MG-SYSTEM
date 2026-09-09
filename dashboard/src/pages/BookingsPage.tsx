@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
+import { usePersistentState } from '@/utils/persistentState';
 
 interface Booking {
   id: string;
@@ -15,16 +16,7 @@ interface Booking {
   notes?: string;
 }
 
-const initialBookings: Booking[] = [
-  { id: 'BO-118', client: 'Acme Co.', service: 'Consultation', date: '2026-08-15', time: '10:00', assignee: 'Sarah Chen', status: 'Confirmed' },
-  { id: 'BO-117', client: 'Nimbus Inc.', service: 'Strategy Session', date: '2026-08-14', time: '14:30', assignee: 'Tom Reed', status: 'Confirmed' },
-  { id: 'BO-116', client: 'Lumen Studio', service: 'Design Review', date: '2026-08-13', time: '09:00', assignee: 'Mia Lopez', status: 'Pending' },
-  { id: 'BO-115', client: 'Vertex Ltd.', service: 'Product Demo', date: '2026-08-12', time: '15:00', assignee: 'James Park', status: 'Confirmed' },
-  { id: 'BO-114', client: 'Orbit Systems', service: 'Technical Audit', date: '2026-08-20', time: '11:00', assignee: 'Kevin Brooks', status: 'Pending' },
-  { id: 'BO-113', client: 'Pulse Media', service: 'Brand Workshop', date: '2026-08-22', time: '13:00', assignee: 'Mia Lopez', status: 'Confirmed' },
-  { id: 'BO-112', client: 'Quartz Labs', service: 'Consultation', date: '2026-08-08', time: '16:00', assignee: 'Sarah Chen', status: 'Completed' },
-  { id: 'BO-111', client: 'Forge Industries', service: 'Strategy Session', date: '2026-08-05', time: '10:30', assignee: 'Tom Reed', status: 'Cancelled' },
-];
+const initialBookings: Booking[] = [];
 
 const statusStyles: Record<string, string> = {
   Confirmed: 'bg-green-50 text-green-700',
@@ -32,17 +24,6 @@ const statusStyles: Record<string, string> = {
   Completed: 'bg-neutral-100 text-neutral-600',
   Cancelled: 'bg-red-50 text-red-700',
 };
-
-const existingClients = [
-  'Acme Co.',
-  'Nimbus Inc.',
-  'Lumen Studio',
-  'Pulse Media',
-  'Vertex Ltd.',
-  'Orbit Systems',
-  'Quartz Labs',
-  'Forge Industries',
-];
 
 const emptyBooking: Booking = {
   id: '',
@@ -55,8 +36,10 @@ const emptyBooking: Booking = {
   notes: '',
 };
 
+const existingClients: string[] = [];
+
 export default function BookingsPage({ searchQuery = '' }: { searchQuery?: string }) {
-  const [bookings, setBookings] = useState<Booking[]>(initialBookings);
+  const [bookings, setBookings] = usePersistentState<Booking[]>('bookings', initialBookings);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [formBooking, setFormBooking] = useState<Booking>(emptyBooking);
@@ -125,7 +108,7 @@ export default function BookingsPage({ searchQuery = '' }: { searchQuery?: strin
     <div className="p-8 animate-fade-in">
       <div className="flex items-center justify-between mb-6">
         <p className="text-sm text-neutral-400 font-medium">{filteredBookings.length} booking orders</p>
-        <button onClick={() => openForm('add')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-black text-white text-sm font-medium hover:bg-neutral-800 transition-colors">
+        <button data-mutation-control onClick={() => openForm('add')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-black text-white text-sm font-medium hover:bg-neutral-800 transition-colors">
           <Plus size={16} /> New Booking
         </button>
       </div>
@@ -163,10 +146,10 @@ export default function BookingsPage({ searchQuery = '' }: { searchQuery?: strin
             <div className="flex items-center justify-between mt-4 pt-4 border-t border-neutral-100">
               <button onClick={() => setViewBooking(b)} className="text-xs font-semibold text-black hover:underline">View details</button>
               <div className="flex items-center gap-1">
-                <button onClick={() => openForm('edit', b)} className="p-1.5 rounded-md text-neutral-500 hover:bg-neutral-100 transition-colors" title="Edit booking">
+                <button data-mutation-control onClick={() => openForm('edit', b)} className="p-1.5 rounded-md text-neutral-500 hover:bg-neutral-100 transition-colors" title="Edit booking">
                   <Edit3 size={16} />
                 </button>
-                <button onClick={() => setPendingDeleteBookingId(b.id)} className="p-1.5 rounded-md text-red-500 hover:bg-red-50 transition-colors" title="Delete booking">
+                <button data-mutation-control onClick={() => setPendingDeleteBookingId(b.id)} className="p-1.5 rounded-md text-red-500 hover:bg-red-50 transition-colors" title="Delete booking">
                   <Trash2 size={16} />
                 </button>
                 <button onClick={() => setViewBooking(b)} className="p-1.5 rounded-md hover:bg-neutral-100 transition-colors" title="View booking">
@@ -229,7 +212,7 @@ export default function BookingsPage({ searchQuery = '' }: { searchQuery?: strin
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label className="space-y-2 text-sm font-medium text-neutral-700">Booking ID<input value={formBooking.id} readOnly className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2" /></label>
-              <label className="space-y-2 text-sm font-medium text-neutral-700">Client<select value={formBooking.client} onChange={(e) => setFormBooking((current) => ({ ...current, client: e.target.value }))} className="w-full rounded-2xl border border-neutral-200 px-3 py-2"><option value="" disabled>Select an existing client</option>{existingClients.map((client) => <option key={client} value={client}>{client}</option>)}</select></label>
+              <label className="space-y-2 text-sm font-medium text-neutral-700">Client<input value={formBooking.client} onChange={(e) => setFormBooking((current) => ({ ...current, client: e.target.value }))} placeholder="Enter client name" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" /></label>
               <label className="space-y-2 text-sm font-medium text-neutral-700 sm:col-span-2">Service details<textarea value={formBooking.service} onChange={(e) => setFormBooking((current) => ({ ...current, service: e.target.value }))} placeholder="Enter the service or full booking requirements" className="min-h-28 w-full resize-y rounded-2xl border border-neutral-200 px-3 py-2" /></label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">Assignee<input value={formBooking.assignee} onChange={(e) => setFormBooking((current) => ({ ...current, assignee: e.target.value }))} placeholder="Person responsible" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" /></label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">Date<input type="date" value={formBooking.date} onChange={(e) => setFormBooking((current) => ({ ...current, date: e.target.value }))} className="w-full rounded-2xl border border-neutral-200 px-3 py-2" /></label>
@@ -239,7 +222,7 @@ export default function BookingsPage({ searchQuery = '' }: { searchQuery?: strin
             </div>
             <div className="flex justify-end gap-3 mt-6">
               <button onClick={closeForm} className="rounded-3xl border border-neutral-200 px-4 py-2 text-sm">Cancel</button>
-              <button onClick={handleSave} className="rounded-3xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800">{formMode === 'add' ? 'Create booking' : 'Save changes'}</button>
+              <button data-mutation-control onClick={handleSave} className="rounded-3xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800">{formMode === 'add' ? 'Create booking' : 'Save changes'}</button>
             </div>
           </div>
         </div>

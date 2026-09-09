@@ -34,6 +34,12 @@ interface SidebarProps {
   active: PageId;
   onNavigate: (page: PageId) => void;
   onLogoutRequest?: () => void;
+  currentUser?: {
+    username?: string;
+    email?: string;
+    role?: string;
+    permissions?: Record<string, string> | string[];
+  };
 }
 
 interface NavGroup {
@@ -79,7 +85,28 @@ const NAV: NavGroup[] = [
   },
 ];
 
-export default function Sidebar({ active, onNavigate, onLogoutRequest }: SidebarProps) {
+export default function Sidebar({ active, onNavigate, onLogoutRequest, currentUser }: SidebarProps) {
+  const permissionFor = (pageId: PageId) => {
+    if (currentUser?.role === 'Admin' || (Array.isArray(currentUser?.permissions) && currentUser.permissions.includes('*'))) return 'Both';
+    const areaByPage: Partial<Record<PageId, string>> = {
+      dashboard: 'Dashboard',
+      projects: 'Projects',
+      clients: 'Clients',
+      users: 'Users',
+      departments: 'Departments',
+      workers: 'Workers',
+      invoices: 'Invoices',
+      events: 'Event & Updates',
+      bookings: 'Booking Orders',
+      officeOrders: 'Office Orders',
+      notifications: 'Notifications',
+    };
+    const area = areaByPage[pageId];
+    if (!area) return 'None';
+    if (Array.isArray(currentUser?.permissions)) return currentUser.permissions.includes(area) ? 'View' : 'None';
+    return currentUser?.permissions?.[area] || 'None';
+  };
+
   const initialOpen = (() => {
     const open: Record<string, boolean> = {};
     NAV.forEach((g) => {
@@ -114,8 +141,12 @@ export default function Sidebar({ active, onNavigate, onLogoutRequest }: Sidebar
               <button
                 key={group.label}
                 onClick={() => onNavigate(group.id!)}
+                disabled={permissionFor(group.id!) === 'None'}
+                title={permissionFor(group.id!) === 'None' ? 'No access assigned' : group.label}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium mb-0.5 transition-colors ${
-                  active === group.id
+                  permissionFor(group.id!) === 'None'
+                    ? 'cursor-not-allowed text-neutral-300'
+                    : active === group.id
                     ? 'bg-black text-white'
                     : 'text-neutral-600 hover:bg-neutral-100'
                 }`}
@@ -147,9 +178,15 @@ export default function Sidebar({ active, onNavigate, onLogoutRequest }: Sidebar
                   {group.children.map((child) => (
                     <button
                       key={child.id}
-                      onClick={() => onNavigate(child.id)}
+                      onClick={() => {
+                        if (permissionFor(child.id) !== 'None') onNavigate(child.id);
+                      }}
+                      disabled={permissionFor(child.id) === 'None'}
+                      title={permissionFor(child.id) === 'None' ? 'No access assigned' : child.label}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        active === child.id
+                        permissionFor(child.id) === 'None'
+                          ? 'cursor-not-allowed text-neutral-300'
+                          : active === child.id
                           ? 'bg-black text-white'
                           : 'text-neutral-600 hover:bg-neutral-100'
                       }`}
@@ -170,8 +207,8 @@ export default function Sidebar({ active, onNavigate, onLogoutRequest }: Sidebar
         <div className="flex items-center gap-3">
           <img src={logoImg} alt="User Avatar" className="w-9 h-9 rounded-full object-cover" />
           <div className="leading-tight flex-1">
-            <p className="text-sm font-semibold">Admin User</p>
-            <p className="text-[11px] text-neutral-400">admin@makezy.com</p>
+            <p className="text-sm font-semibold">{currentUser?.username || 'Admin User'}</p>
+            <p className="text-[11px] text-neutral-400">{currentUser?.email || 'admin@makezy.com'}</p>
           </div>
         </div>
         <div className="mt-3">

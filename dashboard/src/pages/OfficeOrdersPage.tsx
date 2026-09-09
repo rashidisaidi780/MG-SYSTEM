@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
+import { usePersistentState } from '@/utils/persistentState';
 
 interface OfficeOrder {
   id: string;
@@ -15,12 +16,7 @@ interface OfficeOrder {
   notes?: string;
 }
 
-const initialOrders: OfficeOrder[] = [
-  { id: 'OO-001', department: 'HR', subject: 'New employee setup', description: 'Prepare equipment and access for a new employee.', requester: 'HR Department', date: '2026-08-15', status: 'Pending' },
-  { id: 'OO-002', department: 'IT', subject: 'Laptop replacement', description: 'Replace the damaged laptop assigned to the finance team.', requester: 'IT Department', date: '2026-08-14', status: 'Confirmed' },
-  { id: 'OO-003', department: 'Facilities', subject: 'Office supplies request', description: 'Restock printer paper, pens, and meeting room supplies.', requester: 'Facilities Team', date: '2026-08-13', status: 'In Progress' },
-  { id: 'OO-004', department: 'Finance', subject: 'Expense approval', description: 'Review and approve the submitted office expense request.', requester: 'Finance Department', date: '2026-08-12', status: 'Completed' },
-];
+const initialOrders: OfficeOrder[] = [];
 
 const statusStyles: Record<OfficeOrder['status'], string> = {
   Pending: 'bg-amber-50 text-amber-700',
@@ -31,10 +27,10 @@ const statusStyles: Record<OfficeOrder['status'], string> = {
 };
 
 const emptyOrder: OfficeOrder = { id: '', department: '', subject: '', description: '', requester: '', date: '', status: 'Pending', notes: '' };
-const departments = ['HR', 'IT', 'Facilities', 'Finance', 'Operations', 'Management'];
+const departments: string[] = [];
 
 export default function OfficeOrdersPage({ searchQuery = '' }: { searchQuery?: string }) {
-  const [orders, setOrders] = useState<OfficeOrder[]>(initialOrders);
+  const [orders, setOrders] = usePersistentState<OfficeOrder[]>('office-orders', initialOrders);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [formOrder, setFormOrder] = useState<OfficeOrder>(emptyOrder);
@@ -94,7 +90,7 @@ export default function OfficeOrdersPage({ searchQuery = '' }: { searchQuery?: s
     <div className="p-8 animate-fade-in">
       <div className="flex items-center justify-between mb-6 gap-4">
         <p className="text-sm text-neutral-400 font-medium">{filteredOrders.length} office orders</p>
-        <button onClick={() => openForm('add')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-black text-white text-sm font-medium hover:bg-neutral-800 transition-colors"><Plus size={16} /> New Office Order</button>
+        <button data-mutation-control onClick={() => openForm('add')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-black text-white text-sm font-medium hover:bg-neutral-800 transition-colors"><Plus size={16} /> New Office Order</button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredOrders.map((order) => (

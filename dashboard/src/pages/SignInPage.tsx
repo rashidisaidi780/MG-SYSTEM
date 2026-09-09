@@ -1,25 +1,43 @@
 import { useState } from 'react';
 import logoImg from '@/assets/logo.jpeg';
 import { notifySystem } from '@/utils/systemNotifications';
+import { authService } from '@/services';
 
 export default function SignInPage({ onSignIn }: { onSignIn: () => void }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const submit = (e?: React.FormEvent) => {
+  const submit = async (e?: React.FormEvent) => {
     e?.preventDefault();
+    if (!username.trim() || !password.trim()) {
+      setError('Please enter both username and password');
+      return;
+    }
+
     setLoading(true);
-    setTimeout(() => {
-      try {
-        localStorage.setItem('mg_user', JSON.stringify({ username }));
-      } catch (e) {
-        /* ignore */
-      }
-      notifySystem('User signed in', `${username || 'A user'} signed in successfully.`);
+    setError('');
+
+    try {
+      const response = await authService.login({ username, password });
+      
+      // Store the authenticated account, including role and permissions.
+      localStorage.setItem('mg_user', JSON.stringify({ 
+        ...response.user,
+        token: response.token,
+        type: response.user.role === 'Admin' ? 'admin' : 'user',
+      }));
+      
+      notifySystem('User signed in', `${response.user.username || 'A user'} signed in successfully.`);
       setLoading(false);
       onSignIn();
-    }, 900);
+    } catch (err) {
+      setLoading(false);
+      const errorMessage = err instanceof Error ? err.message : 'Login failed. Please check your credentials.';
+      setError(errorMessage);
+      notifySystem('Login failed', errorMessage);
+    }
   };
 
   return (
@@ -53,6 +71,12 @@ export default function SignInPage({ onSignIn }: { onSignIn: () => void }) {
             </div>
 
             <form onSubmit={submit} className="space-y-6">
+              {error && (
+                <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+              
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Email / Username</label>
                 <input
@@ -76,17 +100,6 @@ export default function SignInPage({ onSignIn }: { onSignIn: () => void }) {
 
               <div className="flex items-center justify-between gap-4">
                 <button
-                  type="button"
-                  onClick={() => {
-                    setUsername('admin');
-                    setPassword('demo');
-                  }}
-                  className="text-sm font-medium text-slate-500 hover:text-slate-900"
-                >
-                  Use demo
-                </button>
-
-                <button
                   type="submit"
                   disabled={loading}
                   className="inline-flex items-center justify-center rounded-3xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-950 disabled:cursor-not-allowed disabled:opacity-70"
@@ -95,6 +108,7 @@ export default function SignInPage({ onSignIn }: { onSignIn: () => void }) {
                   <span className="ml-2">→</span>
                 </button>
               </div>
+
             </form>
 
             <p className="mt-12 text-center text-xs text-slate-400">© 2026 Makezy Group Of Companies. All rights reserved.</p>

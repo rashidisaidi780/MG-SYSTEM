@@ -3,6 +3,7 @@ import { Plus, MoreHorizontal, Mail, Phone, Edit3, Trash2, Building2 } from 'luc
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
+import { usePersistentState } from '@/utils/persistentState';
 
 interface Worker {
   id: string;
@@ -21,56 +22,7 @@ interface Worker {
   status: 'Active' | 'On Leave' | 'Contract';
 }
 
-const initialWorkers: Worker[] = [
-  {
-    id: 'sarah-chen',
-    name: 'Sarah Chen',
-    department: 'Finance',
-    tinNumber: 'TIN-783421',
-    nidaNumber: 'NIDA-210987',
-    email: 'sarah@makezy.com',
-    phone: '+1 555-0101',
-    otherPhone: '+1 555-1101',
-    salary: '$4,800',
-    contractStartDate: '2026-05-01',
-    durationValue: 1,
-    durationUnit: 'year',
-    contractEndDate: '2027-05-01',
-    status: 'Active',
-  },
-  {
-    id: 'james-park',
-    name: 'James Park',
-    department: 'Information Technology',
-    tinNumber: 'TIN-684212',
-    nidaNumber: 'NIDA-310652',
-    email: 'james@makezy.com',
-    phone: '+1 555-0102',
-    otherPhone: '+1 555-1102',
-    salary: '$5,600',
-    contractStartDate: '2026-06-10',
-    durationValue: 6,
-    durationUnit: 'month',
-    contractEndDate: '2026-12-10',
-    status: 'Active',
-  },
-  {
-    id: 'anna-wright',
-    name: 'Anna Wright',
-    department: 'Human Resources',
-    tinNumber: 'TIN-847193',
-    nidaNumber: 'NIDA-410723',
-    email: 'anna@makezy.com',
-    phone: '+1 555-0105',
-    otherPhone: '+1 555-1105',
-    salary: '$3,900',
-    contractStartDate: '2025-09-01',
-    durationValue: 1,
-    durationUnit: 'year',
-    contractEndDate: '2026-09-01',
-    status: 'On Leave',
-  },
-];
+const initialWorkers: Worker[] = [];
 
 const statusStyles: Record<Worker['status'], string> = {
   Active: 'bg-green-50 text-green-700',
@@ -78,7 +30,7 @@ const statusStyles: Record<Worker['status'], string> = {
   Contract: 'bg-blue-50 text-blue-700',
 };
 
-const departments = ['Human Resources', 'Information Technology', 'Finance', 'Operations'];
+const departments: string[] = [];
 
 const emptyWorker: Worker = {
   id: '',
@@ -109,7 +61,7 @@ const calculateEndDate = (startDate: string, durationValue: number, durationUnit
 };
 
 export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string }) {
-  const [workers, setWorkers] = useState<Worker[]>(initialWorkers);
+  const [workers, setWorkers] = usePersistentState<Worker[]>('workers', initialWorkers);
   const [formOpen, setFormOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
@@ -212,6 +164,7 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
           <h2 className="text-2xl font-semibold">Team members</h2>
         </div>
         <button
+          data-mutation-control
           onClick={() => openForm('add')}
           className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-black text-white text-sm font-semibold hover:bg-neutral-900 transition-all duration-200 animate-book-button"
         >
@@ -305,6 +258,7 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  data-mutation-control
                   onClick={() => {
                     openForm('edit', selectedWorker);
                     setDetailOpen(false);
@@ -314,6 +268,7 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
                   Edit
                 </button>
                 <button
+                  data-mutation-control
                   onClick={() => setPendingDeleteWorkerId(selectedWorker.id)}
                   className="rounded-3xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-100 transition"
                 >
@@ -432,18 +387,12 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
                 Department
-                <select
+                <input
                   value={formWorker.department}
                   onChange={(event) => handleFormChange('department', event.target.value)}
+                  placeholder="Enter department"
                   className="w-full rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
-                >
-                  <option value="">Choose department</option>
-                  {departments.map((department) => (
-                    <option key={department} value={department}>
-                      {department}
-                    </option>
-                  ))}
-                </select>
+                />
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
                 Phone number
@@ -532,6 +481,7 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
                 Cancel
               </button>
               <button
+                data-mutation-control
                 onClick={saveWorker}
                 className="rounded-3xl bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-900 transition"
               >

@@ -4,6 +4,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import logoImg from '@/assets/logo.jpeg';
+import { usePersistentState } from '@/utils/persistentState';
 
 const companyProfile = {
   name: 'MAKEZY GROUP',
@@ -11,12 +12,12 @@ const companyProfile = {
   location: 'Dar es Salaam, Tanzania',
   phone: '+255 758 018 277 | +255 679 763 448',
   website: 'www.makezygroup.co.tz',
-  poBox: 'P.O. Box 12345, Dar es Salaam, Tanzania',
-  tin: 'TIN-000000000',
-  bankName: 'SELCOM BANK',
-  bankAccountName: 'MAKEZY GROUP',
-  bankAccountNumber: '0000000000',
-  bankBranch: 'Dar es Salaam',
+  poBox: 'P.O. Box 18124, Dar es Salaam, Tanzania',
+  tin: '190172554',
+  bankName: 'SELCOM LIPA  | YAS LIPA',
+  bankAccountNumber: '7005-9500 | 4536-3645',
+  bankAccountName: 'RASHID SAID RASHIDI',
+  bankBranch: 'Tanzania',
 };
 
 interface Invoice {
@@ -30,6 +31,7 @@ interface Invoice {
   country?: string;
   items?: { desc: string; quantity: number; amount: number }[];
   amount: string;
+  paidAmount?: number;
   date: string;
   due: string;
   issuedRaw?: string;
@@ -38,51 +40,8 @@ interface Invoice {
   notes?: string;
 }
 
-interface ClientOption {
-  id: string;
-  name: string;
-  company: string;
-  tin: string;
-  email: string;
-  phone: string;
-  address: string;
-  country: string;
-}
-
-const clients: ClientOption[] = [
-  {
-    id: 'acme',
-    name: 'Acme Co.',
-    company: 'Acme Company',
-    tin: 'TIN-783421',
-    email: 'john@acme.co',
-    phone: '+1 555-0142',
-    address: '123 Main St, Suite 300',
-    country: 'USA',
-  },
-  {
-    id: 'nimbus',
-    name: 'Nimbus Inc.',
-    company: 'Nimbus Incorporated',
-    tin: 'TIN-684212',
-    email: 'emma@nimbus.io',
-    phone: '+1 555-0188',
-    address: '456 Commerce Ave',
-    country: 'USA',
-  },
-  {
-    id: 'lumen',
-    name: 'Lumen Studio',
-    company: 'Lumen Studio',
-    tin: 'TIN-521374',
-    email: 'david@lumen.studio',
-    phone: '+1 555-0203',
-    address: '78 Creative Blvd',
-    country: 'USA',
-  },
-];
-
-const initialInvoices: Invoice[] = [
+const initialInvoices: Invoice[] = [];
+/*
   {
     id: 'INV-2043',
     client: 'Acme Co.',
@@ -119,7 +78,7 @@ const initialInvoices: Invoice[] = [
     status: 'Pending',
     notes: 'Backend development milestone',
   },
-];
+]; */
 
 const statusStyles: Record<Invoice['status'], string> = {
   Paid: 'bg-green-50 text-green-700',
@@ -131,8 +90,13 @@ const statusStyles: Record<Invoice['status'], string> = {
 const escapeHtml = (value: string) =>
   value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] ?? character);
 
+const getItemsTotal = (items: Invoice['items'], fallbackAmount = 0) =>
+  items?.length
+    ? items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.amount) || 0), 0)
+    : fallbackAmount;
+
 export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: string }) {
-  const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
+  const [invoices, setInvoices] = usePersistentState<Invoice[]>('invoices', initialInvoices);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null);
   const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
@@ -162,6 +126,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
     address: '',
     country: '',
     items: [{ desc: '', quantity: 1, amount: 0 }],
+    paidAmount: 0,
     notes: '',
     issued: new Date().toISOString().slice(0, 10),
     due: new Date().toISOString().slice(0, 10),
@@ -269,7 +234,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
             <div><div class="label">Invoice details</div><div class="value">Issue date: <strong>${escapeHtml(inv.date)}</strong><br>Due date: <strong>${escapeHtml(inv.due)}</strong><br>Payment status: <strong>${escapeHtml(inv.status)}</strong></div></div>
           </section>
           <table><thead><tr><th>Description</th><th>Quantity</th><th>Unit price</th><th>Amount</th></tr></thead><tbody>${items.map((item) => `<tr><td>${escapeHtml(item.desc || 'Service')}</td><td>${item.quantity}</td><td>${formatCurrency(item.amount)}</td><td>${formatCurrency(item.quantity * item.amount)}</td></tr>`).join('')}</tbody></table>
-          <div class="total"><div class="total-box"><div class="total-row"><span>Subtotal</span><span>${formatCurrency(itemsTotal)}</span></div><div class="total-row grand-total"><span>Total due</span><span>${formatCurrency(itemsTotal)}</span></div></div></div>
+          <div class="total"><div class="total-box"><div class="total-row"><span>Subtotal</span><span>${formatCurrency(itemsTotal)}</span></div><div class="total-row grand-total"><span>Total: </span><span>${formatCurrency(itemsTotal)}</span></div></div></div>
           <section class="details"><div class="detail-box"><h2>Company details</h2><p>${escapeHtml(companyProfile.email)}</p><p>${escapeHtml(companyProfile.phone)} &nbsp; | &nbsp; ${escapeHtml(companyProfile.website)}</p><p>${escapeHtml(companyProfile.location)}</p><p>${escapeHtml(companyProfile.poBox)}</p><p><strong>TIN:</strong> ${escapeHtml(companyProfile.tin)}</p></div><div class="detail-box"><h2>Bank details</h2><p><strong>Bank:</strong> ${escapeHtml(companyProfile.bankName)}</p><p><strong>Account name:</strong> ${escapeHtml(companyProfile.bankAccountName)}</p><p><strong>Account number:</strong> ${escapeHtml(companyProfile.bankAccountNumber)}</p><p><strong>Branch:</strong> ${escapeHtml(companyProfile.bankBranch)}</p></div></section>
           ${inv.notes ? `<p class="small muted" style="margin: 6mm 0 0"><strong>Notes:</strong> ${escapeHtml(inv.notes).replace(/\n/g, '<br>')}</p>` : ''}
           <section class="approval"><div class="approval-box"><p class="approval-title">Authorized signature</p><div class="signature-line">Name and signature</div></div><div class="approval-box"><p class="approval-title">Company stamp</p><div class="stamp-area">Stamp</div></div></section>
@@ -290,8 +255,11 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
 
   const saveEdit = () => {
     if (!editInvoice) return;
-    const total = (editInvoice.items || []).reduce((sum, item) => sum + item.quantity * item.amount, 0);
-    setInvoices((current) => current.map((i) => (i.id === editInvoice.id ? { ...editInvoice, amount: formatCurrency(total) } : i)));
+    const total = getItemsTotal(editInvoice.items, Number(editInvoice.amount.replace(/[^0-9.-]+/g, '')) || 0);
+    const paidAmount = editInvoice.status === 'Paid'
+      ? total
+      : Math.min(Math.max(0, Number(editInvoice.paidAmount) || 0), total);
+    setInvoices((current) => current.map((i) => (i.id === editInvoice.id ? { ...editInvoice, paidAmount, amount: formatCurrency(total) } : i)));
     setEditInvoice(null);
   };
 
@@ -323,24 +291,11 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
       address: '',
       country: '',
       items: [{ desc: '', quantity: 1, amount: 0 }],
+      paidAmount: 0,
       notes: '',
       issued: new Date().toISOString().slice(0, 10),
       due: new Date().toISOString().slice(0, 10),
     });
-  };
-
-  const handleClientChange = (clientId: string) => {
-    const c = clients.find((x) => x.id === clientId);
-    setCreateForm((f) => ({
-      ...f,
-      clientId,
-      company: c?.company ?? '',
-      tin: c?.tin ?? '',
-      email: c?.email ?? '',
-      phone: c?.phone ?? '',
-      address: c?.address ?? '',
-      country: c?.country ?? '',
-    }));
   };
 
   const addItem = () => setCreateForm((f) => ({ ...f, items: [...f.items, { desc: '', quantity: 1, amount: 0 }] }));
@@ -354,11 +309,15 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
   const formatDate = (d: string) => (d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
 
   const saveCreate = () => {
-    if (!createForm.invoiceId || !createForm.items.length) return;
-    const total = createForm.items.reduce((s, it) => s + (Number(it.quantity) || 0) * (Number(it.amount) || 0), 0);
+    if (!createForm.invoiceId || !createForm.clientId.trim() || !createForm.items.length) {
+      showToast('Please enter an invoice number, client, and at least one item', 'warning');
+      return;
+    }
+    const total = getItemsTotal(createForm.items);
+    const paidAmount = Math.min(Math.max(0, Number(createForm.paidAmount) || 0), total);
     const newInv: Invoice = {
       id: createForm.invoiceId,
-      client: clients.find((c) => c.id === createForm.clientId)!.name,
+      client: createForm.clientId.trim(),
       company: createForm.company,
       tin: createForm.tin,
       email: createForm.email,
@@ -367,6 +326,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
       country: createForm.country,
       items: createForm.items,
       amount: formatCurrency(total),
+      paidAmount,
       date: formatDate(createForm.issued),
       issuedRaw: createForm.issued,
       due: formatDate(createForm.due),
@@ -390,6 +350,14 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
     setOpenMenu(null);
     setPendingDeleteInvoiceId(null);
   };
+
+  const createTotal = getItemsTotal(createForm.items);
+  const editTotal = editInvoice
+    ? getItemsTotal(editInvoice.items, Number(editInvoice.amount.replace(/[^0-9.-]+/g, '')) || 0)
+    : 0;
+  const editRemaining = editInvoice
+    ? Math.max(0, editTotal - (Number(editInvoice.paidAmount) || 0))
+    : 0;
 
   return (
     <div className="p-8 animate-fade-in space-y-6">
@@ -442,10 +410,10 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
                         <button onClick={() => handleView(inv.id)} className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-50 flex items-center gap-2">
                           <Eye size={14} /> View
                         </button>
-                        <button onClick={() => handleEdit(inv.id)} className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-50 flex items-center gap-2">
+                        <button data-mutation-control onClick={() => handleEdit(inv.id)} className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-50 flex items-center gap-2">
                           <Edit3 size={14} /> Update
                         </button>
-                        <button onClick={() => setPendingDeleteInvoiceId(inv.id)} className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-50 flex items-center gap-2 text-red-600">
+                        <button data-mutation-control onClick={() => setPendingDeleteInvoiceId(inv.id)} className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-50 flex items-center gap-2 text-red-600">
                           <Trash2 size={14} /> Delete
                         </button>
                         <button onClick={() => handleDownload(inv.id)} className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-50 flex items-center gap-2">
@@ -512,6 +480,18 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
                 <div className="text-xs text-neutral-400">Amount</div>
                 <div className="font-medium">{viewInvoice.amount}</div>
               </div>
+              {viewInvoice.status === 'Paid' ? (
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <div className="text-xs text-neutral-400">Paid amount</div>
+                    <div className="font-medium">{formatCurrency(viewInvoice.paidAmount ?? 0)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-neutral-400">Remaining</div>
+                    <div className="font-medium">{formatCurrency(Math.max(0, getItemsTotal(viewInvoice.items, Number(viewInvoice.amount.replace(/[^0-9.-]+/g, '')) || 0) - (viewInvoice.paidAmount ?? 0)))}</div>
+                  </div>
+                </div>
+              ) : null}
               <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
                 <div>
                   <div className="text-xs text-neutral-400">Company</div>
@@ -624,12 +604,31 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
               </div>
               <label className="text-sm">
                 Status
-                <select value={editInvoice.status} onChange={(e) => setEditInvoice({ ...editInvoice, status: e.target.value as Invoice['status'] })} className="w-full rounded-2xl border border-neutral-200 px-3 py-2 mt-1">
+                <select value={editInvoice.status} onChange={(e) => {
+                  const status = e.target.value as Invoice['status'];
+                  setEditInvoice({ ...editInvoice, status, paidAmount: status === 'Paid' ? editTotal : editInvoice.paidAmount });
+                }} className="w-full rounded-2xl border border-neutral-200 px-3 py-2 mt-1">
                   <option value="Paid">Paid</option>
                   <option value="Pending">Pending</option>
                   <option value="Overdue">Overdue</option>
                 </select>
               </label>
+              {editInvoice.status === 'Paid' ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl bg-neutral-50 p-3">
+                    <div className="text-xs text-neutral-400">Total amount</div>
+                    <div className="mt-1 font-semibold">{formatCurrency(editTotal)}</div>
+                  </div>
+                  <label className="text-sm">
+                    Paid amount
+                    <input type="number" min="0" max={editTotal} value={editInvoice.paidAmount ?? 0} onChange={(e) => setEditInvoice({ ...editInvoice, paidAmount: Math.min(Math.max(0, Number(e.target.value) || 0), editTotal) })} className="w-full rounded-2xl border border-neutral-200 px-3 py-2 mt-1" />
+                  </label>
+                  <div className="rounded-2xl bg-neutral-50 p-3">
+                    <div className="text-xs text-neutral-400">Remaining</div>
+                    <div className="mt-1 font-semibold">{formatCurrency(editRemaining)}</div>
+                  </div>
+                </div>
+              ) : null}
               <label className="text-sm">
                 Notes
                 <textarea value={editInvoice.notes ?? ''} onChange={(e) => setEditInvoice({ ...editInvoice, notes: e.target.value })} className="w-full rounded-2xl border border-neutral-200 px-3 py-2 mt-1" />
@@ -637,7 +636,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
             </div>
             <div className="mt-4 flex justify-end gap-3">
               <button onClick={() => setEditInvoice(null)} className="rounded-3xl border border-neutral-200 px-4 py-2">Cancel</button>
-              <button onClick={saveEdit} className="rounded-3xl bg-black text-white px-4 py-2">Save</button>
+              <button data-mutation-control onClick={saveEdit} className="rounded-3xl bg-black text-white px-4 py-2">Save</button>
             </div>
           </div>
         </div>
@@ -659,37 +658,32 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
                 <input value={createForm.invoiceId} readOnly className="w-full rounded-2xl border border-neutral-200 px-3 py-2 bg-neutral-50" />
               </label>
               <label className="space-y-2 text-sm">
-                Client
-                <select value={createForm.clientId} onChange={(e) => handleClientChange(e.target.value)} className="w-full rounded-2xl border border-neutral-200 px-3 py-2">
-                  <option value="" disabled>Select a client</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                Client / company name
+                <input value={createForm.clientId} onChange={(e) => setCreateForm((current) => ({ ...current, clientId: e.target.value }))} placeholder="Enter client name" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" />
               </label>
               <label className="space-y-2 text-sm">
-                Company name
-                <input value={createForm.company} readOnly className="w-full rounded-2xl border border-neutral-200 px-3 py-2 bg-neutral-50" />
+                Company address
+                <input value={createForm.company} onChange={(e) => setCreateForm((current) => ({ ...current, company: e.target.value }))} placeholder="Enter company address" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" />
               </label>
               <label className="space-y-2 text-sm">
                 TIN number
-                <input value={createForm.tin} readOnly className="w-full rounded-2xl border border-neutral-200 px-3 py-2 bg-neutral-50" />
+                <input value={createForm.tin} onChange={(e) => setCreateForm((current) => ({ ...current, tin: e.target.value }))} placeholder="Enter TIN number" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" />
               </label>
               <label className="space-y-2 text-sm">
                 Email
-                <input value={createForm.email} readOnly className="w-full rounded-2xl border border-neutral-200 px-3 py-2 bg-neutral-50" />
+                <input value={createForm.email} onChange={(e) => setCreateForm((current) => ({ ...current, email: e.target.value }))} placeholder="Enter email" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" />
               </label>
               <label className="space-y-2 text-sm">
                 Phone
-                <input value={createForm.phone} readOnly className="w-full rounded-2xl border border-neutral-200 px-3 py-2 bg-neutral-50" />
+                <input value={createForm.phone} onChange={(e) => setCreateForm((current) => ({ ...current, phone: e.target.value }))} placeholder="Enter phone" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" />
               </label>
               <label className="space-y-2 text-sm">
                 Address
-                <input value={createForm.address} readOnly className="w-full rounded-2xl border border-neutral-200 px-3 py-2 bg-neutral-50" />
+                <input value={createForm.address} onChange={(e) => setCreateForm((current) => ({ ...current, address: e.target.value }))} placeholder="Enter address" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" />
               </label>
               <label className="space-y-2 text-sm">
                 Country
-                <input value={createForm.country} readOnly className="w-full rounded-2xl border border-neutral-200 px-3 py-2 bg-neutral-50" />
+                <input value={createForm.country} onChange={(e) => setCreateForm((current) => ({ ...current, country: e.target.value }))} placeholder="Enter country" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" />
               </label>
               <div className="sm:col-span-2">
                 <p className="text-sm font-medium mb-2">Items</p>
@@ -702,7 +696,13 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
                       <button onClick={() => removeItem(idx)} className="p-2 text-red-500 rounded-lg">Remove</button>
                     </div>
                   ))}
-                  <button onClick={addItem} className="mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-2xl border border-neutral-200">+ Add item</button>
+                  <div className="mt-3 flex items-center justify-between gap-4 border-t border-neutral-100 pt-3">
+                    <button onClick={addItem} className="inline-flex items-center gap-2 px-3 py-2 rounded-2xl border border-neutral-200">+ Add item</button>
+                    <div className="text-right">
+                      <div className="text-xs text-neutral-400">Total amount</div>
+                      <div className="text-lg font-semibold">{formatCurrency(createTotal)}</div>
+                    </div>
+                  </div>
                 </div>
               </div>
               <label className="space-y-2 text-sm">
@@ -720,7 +720,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
             </div>
             <div className="mt-4 flex justify-end gap-3">
               <button onClick={closeCreate} className="rounded-3xl border border-neutral-200 px-4 py-2">Cancel</button>
-              <button onClick={saveCreate} className="rounded-3xl bg-black text-white px-4 py-2">Save invoice</button>
+              <button data-mutation-control onClick={saveCreate} className="rounded-3xl bg-black text-white px-4 py-2">Save invoice</button>
             </div>
           </div>
         </div>

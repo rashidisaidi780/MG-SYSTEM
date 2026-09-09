@@ -3,6 +3,7 @@ import { Plus, Mail, Phone, Edit3, Trash2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
+import { usePersistentState } from '@/utils/persistentState';
 
 interface Client {
   id: string;
@@ -17,56 +18,7 @@ interface Client {
   date: string;
 }
 
-const initialClients: Client[] = [
-  {
-    id: 'acme',
-    name: 'Acme Co.',
-    company: 'Acme Company',
-    contact: 'John Carter',
-    email: 'john@acme.co',
-    phone: '+1 555-0142',
-    otherPhone: '+1 555-0143',
-    tinNumber: 'TIN-783421',
-    status: 'Active',
-    date: '2026-07-10',
-  },
-  {
-    id: 'nimbus',
-    name: 'Nimbus Inc.',
-    company: 'Nimbus Incorporated',
-    contact: 'Emma Wilson',
-    email: 'emma@nimbus.io',
-    phone: '+1 555-0188',
-    otherPhone: '+1 555-0189',
-    tinNumber: 'TIN-684212',
-    status: 'Active',
-    date: '2026-06-24',
-  },
-  {
-    id: 'lumen',
-    name: 'Lumen Studio',
-    company: 'Lumen Studio',
-    contact: 'David Kim',
-    email: 'david@lumen.studio',
-    phone: '+1 555-0203',
-    otherPhone: '+1 555-0204',
-    tinNumber: 'TIN-521374',
-    status: 'Pending',
-    date: '2026-08-01',
-  },
-  {
-    id: 'pulse',
-    name: 'Pulse Media',
-    company: 'Pulse Media',
-    contact: 'Sophie Adams',
-    email: 'sophie@pulse.media',
-    phone: '+1 555-0312',
-    otherPhone: '+1 555-0313',
-    tinNumber: 'TIN-847193',
-    status: 'Inactive',
-    date: '2026-05-14',
-  },
-];
+const initialClients: Client[] = [];
 
 const emptyClient: Client = {
   id: '',
@@ -82,7 +34,7 @@ const emptyClient: Client = {
 };
 
 export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string }) {
-  const [clients, setClients] = useState<Client[]>(initialClients);
+  const [clients, setClients] = usePersistentState<Client[]>('clients', initialClients);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [formClient, setFormClient] = useState<Client>(emptyClient);
@@ -162,6 +114,7 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
           <h2 className="text-2xl font-semibold">Client management</h2>
         </div>
         <button
+          data-mutation-control
           onClick={() => openForm('add')}
           className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-black text-white text-sm font-semibold shadow-lg shadow-black/10 hover:bg-neutral-900 transition-all duration-200 animate-book-button"
         >
@@ -185,6 +138,7 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  data-mutation-control
                   onClick={() => openForm('edit', client)}
                   className="p-2 rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-black transition-colors"
                   title="Edit client"
@@ -192,6 +146,7 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
                   <Edit3 size={16} />
                 </button>
                 <button
+                  data-mutation-control
                   onClick={() => setPendingDeleteClientId(client.id)}
                   className="p-2 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
                   title="Delete client"
@@ -266,7 +221,7 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label className="space-y-2 text-sm font-medium text-neutral-700">
-                Client name
+                Client name / company name
                 <input
                   value={formClient.name}
                   onChange={(event) => handleChange('name', event.target.value)}
@@ -275,12 +230,12 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
                 />
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
-                Company name
+                Company address
                 <input
                   value={formClient.company}
                   onChange={(event) => handleChange('company', event.target.value)}
                   className="w-full rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
-                  placeholder="Enter company name"
+                  placeholder="Enter company address"
                 />
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
@@ -353,6 +308,7 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
                 Cancel
               </button>
               <button
+                data-mutation-control
                 onClick={handleSave}
                 className="rounded-3xl bg-black px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-900 transition"
               >
