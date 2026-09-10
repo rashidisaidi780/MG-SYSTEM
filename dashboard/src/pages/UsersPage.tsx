@@ -4,6 +4,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import { adminService } from '@/services/admin';
+import { useDepartments } from '@/utils/departments';
 
 type AccessLevel = 'None' | 'View' | 'Edit' | 'Both';
 
@@ -33,8 +34,6 @@ const systemAreas: AccessArea[] = [
   'Booking Orders',
   'Office Orders',
 ];
-
-const departments: string[] = [];
 
 interface UserAccount {
   id: string;
@@ -141,6 +140,7 @@ const emptyUser: UserAccount = {
 
 export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [users, setUsers] = useState<UserAccount[]>(initialUsers);
+  const [departments] = useDepartments();
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
@@ -462,12 +462,16 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
                 Department
-                <input
+                <select
                   value={formUser.department}
                   onChange={(event) => handleChange('department', event.target.value)}
-                  placeholder="Enter department"
                   className="w-full rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
-                />
+                >
+                  <option value="" disabled>Select department</option>
+                  {departments.map((department) => (
+                    <option key={department} value={department}>{department}</option>
+                  ))}
+                </select>
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
                 Status

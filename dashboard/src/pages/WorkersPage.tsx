@@ -4,6 +4,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import { usePersistentState } from '@/utils/persistentState';
+import { useDepartments } from '@/utils/departments';
 
 interface Worker {
   id: string;
@@ -29,8 +30,6 @@ const statusStyles: Record<Worker['status'], string> = {
   'On Leave': 'bg-amber-50 text-amber-700',
   Contract: 'bg-blue-50 text-blue-700',
 };
-
-const departments: string[] = [];
 
 const emptyWorker: Worker = {
   id: '',
@@ -62,6 +61,7 @@ const calculateEndDate = (startDate: string, durationValue: number, durationUnit
 
 export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [workers, setWorkers] = usePersistentState<Worker[]>('workers', initialWorkers);
+  const [departments] = useDepartments();
   const [formOpen, setFormOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
@@ -387,12 +387,16 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
                 Department
-                <input
+                <select
                   value={formWorker.department}
                   onChange={(event) => handleFormChange('department', event.target.value)}
-                  placeholder="Enter department"
                   className="w-full rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
-                />
+                >
+                  <option value="" disabled>Select department</option>
+                  {departments.map((department) => (
+                    <option key={department} value={department}>{department}</option>
+                  ))}
+                </select>
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
                 Phone number

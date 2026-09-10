@@ -2,6 +2,7 @@ import { useMemo, useState, type ChangeEvent } from 'react';
 import { ImagePlus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { usePersistentState } from '@/utils/persistentState';
+import { notifySystem } from '@/utils/systemNotifications';
 
 interface EventPost {
   id: string;
@@ -131,6 +132,7 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
     };
 
     setPosts((current) => [nextPost, ...current]);
+    notifySystem('Event & Update published', nextPost.title);
     setForm(emptyForm);
     setFormOpen(false);
     showToast(`Event "${nextPost.title}" published successfully!`, 'success');

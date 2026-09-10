@@ -40,6 +40,18 @@ interface Invoice {
   notes?: string;
 }
 
+interface Client {
+  id: string;
+  name: string;
+  company: string;
+  email: string;
+  phone: string;
+  otherPhone: string;
+  tinNumber: string;
+  address?: string;
+  country?: string;
+}
+
 const initialInvoices: Invoice[] = [];
 /*
   {
@@ -97,6 +109,7 @@ const getItemsTotal = (items: Invoice['items'], fallbackAmount = 0) =>
 
 export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [invoices, setInvoices] = usePersistentState<Invoice[]>('invoices', initialInvoices);
+  const [clients] = usePersistentState<Client[]>('clients', []);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null);
   const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
@@ -131,6 +144,22 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
     issued: new Date().toISOString().slice(0, 10),
     due: new Date().toISOString().slice(0, 10),
   });
+
+  const selectedClient = clients.find((client) => client.id === createForm.clientId);
+
+  const selectClient = (clientId: string) => {
+    const client = clients.find((item) => item.id === clientId);
+    setCreateForm((current) => ({
+      ...current,
+      clientId,
+      company: client?.company ?? '',
+      tin: client?.tinNumber ?? '',
+      email: client?.email ?? '',
+      phone: client?.phone ?? '',
+      address: client?.address ?? '',
+      country: client?.country ?? '',
+    }));
+  };
 
   const toggleMenu = (id: string, event: MouseEvent<HTMLButtonElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -309,7 +338,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
   const formatDate = (d: string) => (d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '');
 
   const saveCreate = () => {
-    if (!createForm.invoiceId || !createForm.clientId.trim() || !createForm.items.length) {
+    if (!createForm.invoiceId || !selectedClient || !createForm.items.length) {
       showToast('Please enter an invoice number, client, and at least one item', 'warning');
       return;
     }
@@ -317,7 +346,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
     const paidAmount = Math.min(Math.max(0, Number(createForm.paidAmount) || 0), total);
     const newInv: Invoice = {
       id: createForm.invoiceId,
-      client: createForm.clientId.trim(),
+      client: selectedClient.name,
       company: createForm.company,
       tin: createForm.tin,
       email: createForm.email,
@@ -659,31 +688,34 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
               </label>
               <label className="space-y-2 text-sm">
                 Client / company name
-                <input value={createForm.clientId} onChange={(e) => setCreateForm((current) => ({ ...current, clientId: e.target.value }))} placeholder="Enter client name" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" />
+                <select value={createForm.clientId} onChange={(e) => selectClient(e.target.value)} className="w-full rounded-2xl border border-neutral-200 px-3 py-2">
+                  <option value="" disabled>Select a client</option>
+                  {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
+                </select>
               </label>
               <label className="space-y-2 text-sm">
                 Company address
-                <input value={createForm.company} onChange={(e) => setCreateForm((current) => ({ ...current, company: e.target.value }))} placeholder="Enter company address" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" />
+                <input value={createForm.company} readOnly className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2" />
               </label>
               <label className="space-y-2 text-sm">
                 TIN number
-                <input value={createForm.tin} onChange={(e) => setCreateForm((current) => ({ ...current, tin: e.target.value }))} placeholder="Enter TIN number" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" />
+                <input value={createForm.tin} readOnly className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2" />
               </label>
               <label className="space-y-2 text-sm">
                 Email
-                <input value={createForm.email} onChange={(e) => setCreateForm((current) => ({ ...current, email: e.target.value }))} placeholder="Enter email" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" />
+                <input value={createForm.email} readOnly className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2" />
               </label>
               <label className="space-y-2 text-sm">
                 Phone
-                <input value={createForm.phone} onChange={(e) => setCreateForm((current) => ({ ...current, phone: e.target.value }))} placeholder="Enter phone" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" />
+                <input value={createForm.phone} readOnly className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2" />
               </label>
               <label className="space-y-2 text-sm">
                 Address
-                <input value={createForm.address} onChange={(e) => setCreateForm((current) => ({ ...current, address: e.target.value }))} placeholder="Enter address" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" />
+                <input value={createForm.address} readOnly className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2" />
               </label>
               <label className="space-y-2 text-sm">
                 Country
-                <input value={createForm.country} onChange={(e) => setCreateForm((current) => ({ ...current, country: e.target.value }))} placeholder="Enter country" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" />
+                <input value={createForm.country} readOnly className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2" />
               </label>
               <div className="sm:col-span-2">
                 <p className="text-sm font-medium mb-2">Items</p>

@@ -14,6 +14,8 @@ interface Client {
   phone: string;
   otherPhone: string;
   tinNumber: string;
+  address?: string;
+  country?: string;
   status: 'Active' | 'Inactive' | 'Pending';
   date: string;
 }
@@ -29,6 +31,8 @@ const emptyClient: Client = {
   phone: '',
   otherPhone: '',
   tinNumber: '',
+  address: '',
+  country: '',
   status: 'Active',
   date: '',
 };
@@ -275,6 +279,24 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
                   onChange={(event) => handleChange('tinNumber', event.target.value)}
                   className="w-full rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
                   placeholder="Enter TIN number"
+                />
+              </label>
+              <label className="space-y-2 text-sm font-medium text-neutral-700">
+                Address
+                <input
+                  value={formClient.address ?? ''}
+                  onChange={(event) => handleChange('address', event.target.value)}
+                  className="w-full rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
+                  placeholder="Enter client address"
+                />
+              </label>
+              <label className="space-y-2 text-sm font-medium text-neutral-700">
+                Country
+                <input
+                  value={formClient.country ?? ''}
+                  onChange={(event) => handleChange('country', event.target.value)}
+                  className="w-full rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
+                  placeholder="Enter country"
                 />
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">

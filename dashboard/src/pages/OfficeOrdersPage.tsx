@@ -4,6 +4,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import { usePersistentState } from '@/utils/persistentState';
+import { useDepartments } from '@/utils/departments';
 
 interface OfficeOrder {
   id: string;
@@ -27,10 +28,10 @@ const statusStyles: Record<OfficeOrder['status'], string> = {
 };
 
 const emptyOrder: OfficeOrder = { id: '', department: '', subject: '', description: '', requester: '', date: '', status: 'Pending', notes: '' };
-const departments: string[] = [];
 
 export default function OfficeOrdersPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [orders, setOrders] = usePersistentState<OfficeOrder[]>('office-orders', initialOrders);
+  const [departments] = useDepartments();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [formOrder, setFormOrder] = useState<OfficeOrder>(emptyOrder);

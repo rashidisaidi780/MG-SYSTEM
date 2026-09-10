@@ -12,11 +12,125 @@ interface Notification {
   read: boolean;
 }
 
+interface StoredActivity {
+  id: string;
+  title: string;
+  message: string;
+  occurredAt: string;
+}
+
+interface StoredEvent {
+  id: string;
+  title: string;
+  description: string;
+  createdAt: string;
+  expiresAt: string | null;
+  isNew: boolean;
+}
+
+interface StoredProject {
+  id: string;
+  name: string;
+  status: string;
+  endDate: string;
+}
+
+interface StoredInvoice {
+  id: string;
+  client: string;
+  dueRaw?: string;
+  due: string;
+  status: string;
+}
+
 const initial: Notification[] = [];
+
+const readStorage = <T,>(key: string): T[] => {
+  try {
+    const stored = localStorage.getItem(`mg_${key}`);
+    return stored ? (JSON.parse(stored) as T[]) : [];
+  } catch {
+    return [];
+  }
+};
+
+const formatTime = (value: string) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+};
+
+const dateOnly = (value: string) => {
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const buildSourceNotifications = (): Notification[] => {
+  const activities = readStorage<StoredActivity>('activities').map((activity) => ({
+    id: activity.id,
+    title: activity.title,
+    message: activity.message,
+    time: formatTime(activity.occurredAt),
+    read: true,
+  }));
+
+  const events = readStorage<StoredEvent>('events')
+    .filter((event) => !event.expiresAt || new Date(event.expiresAt).getTime() > Date.now())
+    .map((event) => ({
+      id: `event-${event.id}`,
+      title: event.title,
+      message: event.description,
+      time: formatTime(event.createdAt),
+      read: !event.isNew,
+    }));
+
+  const projects = readStorage<StoredProject>('projects').map((project) => ({
+    id: `project-${project.id}`,
+    title: `Project: ${project.name}`,
+    message: `${project.status} project${project.endDate ? `, deadline ${project.endDate}` : ''}.`,
+    time: 'Project update',
+    read: true,
+  }));
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const deadline = new Date(today);
+  deadline.setDate(deadline.getDate() + 30);
+  const invoices = readStorage<StoredInvoice>('invoices').flatMap((invoice) => {
+    if (invoice.status === 'Paid' || invoice.status === 'Canceled') return [];
+    const dueDate = dateOnly(invoice.dueRaw || invoice.due);
+    if (!dueDate || dueDate > deadline) return [];
+    const expired = dueDate < today;
+    return [{
+      id: `invoice-alert-${invoice.id}-${invoice.dueRaw || invoice.due}`,
+      title: expired ? 'Invoice expired' : 'Invoice due soon',
+      message: `${invoice.id} for ${invoice.client} is ${expired ? 'expired' : 'due'} ${dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}.`,
+      time: expired ? 'Expired' : 'Due within 30 days',
+      read: false,
+    }];
+  });
+
+  return [...events, ...invoices, ...projects, ...activities];
+};
 
 export default function NotificationsPage({ refreshKey, searchQuery = '' }: { refreshKey?: number; searchQuery?: string }) {
   const [items, setItems] = usePersistentState<Notification[]>('notifications', initial);
   const [confirmDelete, setConfirmDelete] = useState<{ kind: 'all' | 'one'; id?: string } | null>(null);
+
+  const syncSourceNotifications = () => {
+    const sourceItems = buildSourceNotifications();
+    setItems((current) => {
+      const currentById = new Map(current.map((item) => [item.id, item]));
+      const merged = sourceItems.map((item) => ({ ...item, read: currentById.get(item.id)?.read ?? item.read }));
+      const sourceIds = new Set(sourceItems.map((item) => item.id));
+      return [...merged, ...current.filter((item) => !sourceIds.has(item.id))];
+    });
+  };
+
+  useEffect(() => {
+    syncSourceNotifications();
+  }, [refreshKey]);
 
   useEffect(() => {
     const handleSystemNotification = (event: Event) => {
@@ -38,11 +152,6 @@ export default function NotificationsPage({ refreshKey, searchQuery = '' }: { re
     window.addEventListener('system-notification', handleSystemNotification);
     return () => window.removeEventListener('system-notification', handleSystemNotification);
   }, []);
-
-  useEffect(() => {
-    if (refreshKey === undefined) return;
-    setItems((current) => [...current]);
-  }, [refreshKey]);
 
   const markRead = (id: string) => {
     setItems((s) => s.map((it) => (it.id === id ? { ...it, read: true } : it)));
