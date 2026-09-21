@@ -17,9 +17,11 @@ class Update extends Model
         'update_date',
         'update_duration',
         'update_status',
+        'is_new',
     ];
 
     protected $casts = [
         'update_date' => 'date',
+        'is_new' => 'boolean',
     ];
 }

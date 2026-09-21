@@ -25,10 +25,11 @@ class UpdateController extends Controller
             'update_id' => 'required|string|max:255|unique:updates,update_id',
             'update_title' => 'required|string|max:255',
             'update_description' => 'required|string',
-            'update_image' => 'nullable|string|max:255',
+            'update_image' => 'nullable|string',
             'update_date' => 'required|date',
             'update_duration' => 'nullable|integer|min:1',
             'update_status' => 'nullable|string|max:50',
+            'is_new' => 'nullable|boolean',
         ]);
 
         $update = Update::create($validated);
@@ -71,13 +72,14 @@ class UpdateController extends Controller
         }
 
         $validated = $request->validate([
-            'update_id' => 'required|string|max:255|unique:updates,update_id,' . $id,
-            'update_title' => 'required|string|max:255',
-            'update_description' => 'required|string',
-            'update_image' => 'nullable|string|max:255',
-            'update_date' => 'required|date',
+            'update_id' => 'sometimes|string|max:255|unique:updates,update_id,' . $id,
+            'update_title' => 'sometimes|string|max:255',
+            'update_description' => 'sometimes|string',
+            'update_image' => 'nullable|string',
+            'update_date' => 'sometimes|date',
             'update_duration' => 'nullable|integer|min:1',
             'update_status' => 'nullable|string|max:50',
+            'is_new' => 'sometimes|boolean',
         ]);
 
         $update->update($validated);

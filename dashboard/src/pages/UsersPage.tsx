@@ -4,7 +4,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import { adminService } from '@/services/admin';
-import { useDepartments } from '@/utils/departments';
+import { useDepartmentOptions } from '@/utils/departments';
 
 type AccessLevel = 'None' | 'View' | 'Edit' | 'Both';
 
@@ -140,7 +140,7 @@ const emptyUser: UserAccount = {
 
 export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [users, setUsers] = useState<UserAccount[]>(initialUsers);
-  const [departments] = useDepartments();
+  const [departments] = useDepartmentOptions();
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
@@ -243,6 +243,7 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
         user_name: formUser.username,
         user_email: formUser.email,
         user_password: formUser.password,
+        department_id: formUser.department ? Number(formUser.department) : undefined,
         user_role: formUser.role === 'Sub User' || formUser.role === 'Accountant' ? formUser.role : formUser.role,
         user_status: formUser.status,
         permissions: formUser.access,
@@ -257,6 +258,7 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
         user_name: formUser.username,
         user_email: formUser.email,
         user_password: formUser.password || undefined,
+        department_id: formUser.department ? Number(formUser.department) : undefined,
         user_role: formUser.role,
         user_status: formUser.status,
         permissions: formUser.access,
@@ -469,7 +471,7 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
                 >
                   <option value="" disabled>Select department</option>
                   {departments.map((department) => (
-                    <option key={department} value={department}>{department}</option>
+                    <option key={department.id} value={department.id}>{department.name}</option>
                   ))}
                 </select>
               </label>
@@ -556,7 +558,8 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
                                 name={`${area}-${accessUser.id}`}
                                 value={level}
                                 checked={accessUser.access[area] === level}
-                                onChange={() => setAccessLevel(area, level)}
+                                onClick={() => setAccessLevel(area, accessUser.access[area] === level ? 'None' : level)}
+                                readOnly
                                 className="h-3 w-3 accent-black"
                               />
                               {level}

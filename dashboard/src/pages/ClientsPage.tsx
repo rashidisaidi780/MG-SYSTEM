@@ -1,15 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, Mail, Phone, Edit3, Trash2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
-import { usePersistentState } from '@/utils/persistentState';
+import clientsService, { type Client as ServiceClient } from '@/services/clients';
 
 interface Client {
   id: string;
   name: string;
   company: string;
-  contact: string;
   email: string;
   phone: string;
   otherPhone: string;
@@ -26,7 +25,6 @@ const emptyClient: Client = {
   id: '',
   name: '',
   company: '',
-  contact: '',
   email: '',
   phone: '',
   otherPhone: '',
@@ -37,13 +35,27 @@ const emptyClient: Client = {
   date: '',
 };
 
+const toPageClient = (client: ServiceClient, otherPhone = ''): Client => ({
+  ...client,
+  otherPhone,
+  tinNumber: client.tin,
+});
+
 export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string }) {
-  const [clients, setClients] = usePersistentState<Client[]>('clients', initialClients);
+  const [clients, setClients] = useState<Client[]>(initialClients);
+  const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [formClient, setFormClient] = useState<Client>(emptyClient);
   const [pendingDeleteClientId, setPendingDeleteClientId] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  useEffect(() => {
+    void clientsService.getAll()
+      .then((loadedClients) => setClients(loadedClients.map((client) => toPageClient(client))))
+      .catch(() => showToast('Unable to load clients from the server', 'error'))
+      .finally(() => setIsLoading(false));
+  }, [showToast]);
 
   const filteredClients = useMemo(() => {
     if (!searchQuery.trim()) return clients;
@@ -84,30 +96,47 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
       return;
     }
 
-    if (formMode === 'add') {
-      const newClient = { ...formClient, id: `client-${Date.now()}` };
-      setClients((current) => [newClient, ...current]);
-      notifySystem('Client added', `${newClient.name} was added to the client directory.`);
-      showToast(`Client "${newClient.name}" added successfully`, 'success');
-    } else {
-      setClients((current) =>
-        current.map((client) => (client.id === formClient.id ? { ...formClient } : client)),
-      );
-      notifySystem('Client updated', `${formClient.name} client details were updated.`);
-      showToast(`Client "${formClient.name}" updated successfully`, 'success');
-    }
+    const request = {
+      name: formClient.name,
+      email: formClient.email,
+      phone: formClient.phone,
+      company: formClient.company,
+      tin: formClient.tinNumber,
+      address: formClient.address ?? '',
+      country: formClient.country ?? '',
+      otherPhone: formClient.otherPhone,
+      status: formClient.status,
+      date: formClient.date,
+    };
+    const saveRequest = formMode === 'add'
+      ? clientsService.create(request)
+      : clientsService.update(formClient.id, request);
 
-    closeForm();
+    void saveRequest
+      .then((savedClient) => {
+        const clientForPage: Client = toPageClient(savedClient, formClient.otherPhone);
+        setClients((current) => formMode === 'add'
+          ? [clientForPage, ...current]
+          : current.map((client) => client.id === clientForPage.id ? clientForPage : client));
+        notifySystem(formMode === 'add' ? 'Client added' : 'Client updated', `${clientForPage.name} ${formMode === 'add' ? 'was added to' : 'details were updated in'} the client directory.`);
+        showToast(`Client "${clientForPage.name}" ${formMode === 'add' ? 'added' : 'updated'} successfully`, 'success');
+        closeForm();
+      })
+      .catch(() => showToast('Unable to save the client to the server', 'error'));
   };
 
   const handleDelete = (clientId: string) => {
     const clientToDelete = clients.find((client) => client.id === clientId);
-    setClients((current) => current.filter((client) => client.id !== clientId));
-    if (clientToDelete) {
-      notifySystem('Client deleted', `${clientToDelete.name} was removed from the client directory.`);
-      showToast(`Client "${clientToDelete.name}" deleted`, 'info');
-    }
-    setPendingDeleteClientId(null);
+    void clientsService.delete(clientId)
+      .then(() => {
+        setClients((current) => current.filter((client) => client.id !== clientId));
+        if (clientToDelete) {
+          notifySystem('Client deleted', `${clientToDelete.name} was removed from the client directory.`);
+          showToast(`Client "${clientToDelete.name}" deleted`, 'info');
+        }
+        setPendingDeleteClientId(null);
+      })
+      .catch(() => showToast('Unable to delete the client from the server', 'error'));
   };
 
   return (
@@ -126,6 +155,7 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
         </button>
       </div>
 
+      {isLoading ? <p className="text-sm text-neutral-500">Loading clients...</p> : null}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {filteredClients.map((client) => (
           <div

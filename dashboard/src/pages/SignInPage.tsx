@@ -2,9 +2,20 @@ import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import logoImg from '@/assets/logo.jpeg';
 import { notifySystem } from '@/utils/systemNotifications';
-import { authService } from '@/services';
+import { authService, type AuthUser } from '@/services';
 
-export default function SignInPage({ onSignIn }: { onSignIn: () => void }) {
+const getLoginErrorMessage = (error: unknown) => {
+  if (typeof error === 'object' && error !== null && 'status' in error) {
+    const status = (error as { status?: number }).status;
+    if (status === 401 || status === 422) {
+      return 'Incorrect username or password. Please try again.';
+    }
+  }
+
+  return 'Unable to sign in right now. Please try again.';
+};
+
+export default function SignInPage({ onSignIn }: { onSignIn: (user: AuthUser) => void }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -33,10 +44,10 @@ export default function SignInPage({ onSignIn }: { onSignIn: () => void }) {
       
       notifySystem('User signed in', `${response.user.username || 'A user'} signed in successfully.`);
       setLoading(false);
-      onSignIn();
+      onSignIn({ ...response.user, token: response.token });
     } catch (err) {
       setLoading(false);
-      const errorMessage = err instanceof Error ? err.message : 'Login failed. Please check your credentials.';
+      const errorMessage = getLoginErrorMessage(err);
       setError(errorMessage);
       notifySystem('Login failed', errorMessage);
     }

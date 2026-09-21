@@ -24,12 +24,14 @@ class ClientController extends Controller
         $validated = $request->validate([
             'client_id' => 'required|string|max:255|unique:clients,client_id',
             'client_name' => 'required|string|max:255',
+            'client_company' => 'nullable|string|max:255',
             'client_email' => 'nullable|email|max:255',
             'client_phone' => 'required|string|max:50',
             'client_address' => 'nullable|string',
             'client_otherphone' => 'nullable|string|max:50',
             'client_status' => 'nullable|string|max:50',
             'client_tin' => 'nullable|string|max:100',
+            'client_country' => 'nullable|string|max:100',
             'client_date_added' => 'nullable|date',
         ]);
 
@@ -75,12 +77,14 @@ class ClientController extends Controller
         $validated = $request->validate([
             'client_id' => 'required|string|max:255|unique:clients,client_id,' . $id,
             'client_name' => 'required|string|max:255',
+            'client_company' => 'nullable|string|max:255',
             'client_email' => 'nullable|email|max:255',
             'client_phone' => 'required|string|max:50',
             'client_address' => 'nullable|string',
             'client_otherphone' => 'nullable|string|max:50',
             'client_status' => 'nullable|string|max:50',
             'client_tin' => 'nullable|string|max:100',
+            'client_country' => 'nullable|string|max:100',
             'client_date_added' => 'nullable|date',
         ]);
 

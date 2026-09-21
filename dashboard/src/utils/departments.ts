@@ -1,4 +1,5 @@
-import { usePersistentState } from './persistentState';
+import { useEffect, useState } from 'react';
+import departmentsService from '@/services/departments';
 
 export interface DepartmentOption {
   id: string;
@@ -7,6 +8,21 @@ export interface DepartmentOption {
 }
 
 export function useDepartments() {
-  const [departments] = usePersistentState<DepartmentOption[]>('departments', []);
+  const [departments, setDepartments] = useState<DepartmentOption[]>([]);
+
+  useEffect(() => {
+    void departmentsService.getAll().then(setDepartments).catch(() => setDepartments([]));
+  }, []);
+
   return [departments.map((department) => department.name)] as const;
+}
+
+export function useDepartmentOptions() {
+  const [departments, setDepartments] = useState<DepartmentOption[]>([]);
+
+  useEffect(() => {
+    void departmentsService.getAll().then(setDepartments).catch(() => setDepartments([]));
+  }, []);
+
+  return [departments] as const;
 }

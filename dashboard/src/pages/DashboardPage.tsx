@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FileText, FolderKanban, Users, ClipboardList, Activity, AlertTriangle } from 'lucide-react';
-import type { SystemActivity } from '@/utils/systemNotifications';
+import { SYSTEM_ACTIVITIES_STORAGE_KEY, type SystemActivity } from '@/utils/systemNotifications';
 
 const readCount = (key: string) => {
   try {
@@ -14,7 +14,7 @@ const readCount = (key: string) => {
 export default function DashboardPage() {
   const [activities, setActivities] = useState<SystemActivity[]>(() => {
     try {
-      const stored = localStorage.getItem('mg_activities');
+      const stored = localStorage.getItem(SYSTEM_ACTIVITIES_STORAGE_KEY);
       return stored ? (JSON.parse(stored) as SystemActivity[]) : [];
     } catch {
       return [];
@@ -70,13 +70,13 @@ export default function DashboardPage() {
         ))}
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-neutral-200 bg-white p-6">
+        <section className="flex h-[28rem] flex-col rounded-xl border border-neutral-200 bg-white p-6">
           <div className="mb-4 flex items-center gap-2">
             <Activity size={18} />
             <h2 className="text-lg font-semibold">Last 10 activities</h2>
           </div>
           {activities.length ? (
-            <div className="divide-y divide-neutral-100">
+            <div className="min-h-0 flex-1 overflow-y-auto divide-y divide-neutral-100 pr-2">
               {activities.map((activity) => (
                 <div key={activity.id} className="py-3 first:pt-0 last:pb-0">
                   <p className="text-sm font-medium">{activity.title}</p>

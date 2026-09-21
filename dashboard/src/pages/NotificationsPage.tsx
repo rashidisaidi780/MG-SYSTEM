@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Bell, Trash2, CheckCircle } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import type { SystemNotificationEventDetail } from '@/utils/systemNotifications';
+import { SYSTEM_ACTIVITIES_STORAGE_KEY, type SystemNotificationEventDetail } from '@/utils/systemNotifications';
 import { usePersistentState } from '@/utils/persistentState';
 
 interface Notification {
@@ -67,7 +67,7 @@ const dateOnly = (value: string) => {
 };
 
 const buildSourceNotifications = (): Notification[] => {
-  const activities = readStorage<StoredActivity>('activities').map((activity) => ({
+  const activities = readStorage<StoredActivity>(SYSTEM_ACTIVITIES_STORAGE_KEY.replace('mg_', '')).map((activity) => ({
     id: activity.id,
     title: activity.title,
     message: activity.message,

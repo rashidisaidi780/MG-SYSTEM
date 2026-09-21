@@ -5,7 +5,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import ToastContainer from '@/components/ToastContainer';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
-import { authService } from '@/services';
+import { authService, type AuthUser } from '@/services';
 import DashboardPage from '@/pages/DashboardPage';
 import SignInPage from '@/pages/SignInPage';
 import ProjectsPage from '@/pages/ProjectsPage';
@@ -18,6 +18,28 @@ import BookingsPage from '@/pages/BookingsPage';
 import OfficeOrdersPage from '@/pages/OfficeOrdersPage';
 import NotificationsPage from '@/pages/NotificationsPage';
 import EventsPage from '@/pages/EventsPage';
+
+type StoredUser = {
+  username?: string;
+  email?: string;
+  name?: string;
+  type?: string;
+  role?: string;
+  permissions?: Record<string, string> | string[];
+};
+
+const getStoredPage = (user: StoredUser | null): PageId => {
+  if (!user) return 'signin';
+
+  try {
+    const storedPage = localStorage.getItem('mg_current_page') as PageId | null;
+    return storedPage && storedPage !== 'signin' && storedPage in pageMeta
+      ? storedPage
+      : 'dashboard';
+  } catch {
+    return 'dashboard';
+  }
+};
 
 const pageMeta: Record<PageId, { title: string; subtitle: string }> = {
   signin: { title: 'Sign in', subtitle: 'Access your workspace' },
@@ -35,30 +57,27 @@ const pageMeta: Record<PageId, { title: string; subtitle: string }> = {
 };
 
 export default function App() {
-  const [page, setPage] = useState<PageId>('signin');
+  const [currentUser, setCurrentUser] = useState<StoredUser | null>(() => authService.getStoredUser());
+  const [page, setPage] = useState<PageId>(() => getStoredPage(currentUser));
   const [isLoading, setIsLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentUser, setCurrentUser] = useState<{ username?: string; email?: string; name?: string; type?: string; role?: string; permissions?: Record<string, string> | string[] } | null>(null);
   const meta = pageMeta[page];
 
-  // Load user from localStorage on mount or page change (for signin)
-  useEffect(() => {
-    if (page !== 'signin') {
-      try {
-        const stored = localStorage.getItem('mg_user');
-        if (stored) {
-          setCurrentUser(JSON.parse(stored));
-        }
-      } catch (e) {
-        /* ignore */
-      }
-    }
-  }, [page]);
-
-  const handleSignIn = () => {
+  const handleSignIn = (user: AuthUser) => {
+    setCurrentUser(user);
+    localStorage.setItem('mg_current_page', 'dashboard');
     setPage('dashboard');
+  };
+
+  const navigateToPage = (nextPage: PageId) => {
+    if (nextPage === 'signin') {
+      setLogoutConfirmOpen(true);
+      return;
+    }
+    localStorage.setItem('mg_current_page', nextPage);
+    setPage(nextPage);
   };
 
   const handleRefresh = () => {
@@ -113,19 +132,13 @@ export default function App() {
         <div className="min-h-screen bg-white flex">
         <Sidebar
           active={page}
-          onNavigate={(nextPage) => {
-            if (nextPage === 'signin') {
-              setLogoutConfirmOpen(true);
-              return;
-            }
-            setPage(nextPage);
-          }}
+          onNavigate={navigateToPage}
           onLogoutRequest={() => setLogoutConfirmOpen(true)}
           currentUser={currentUser || undefined}
         />
         <main className="flex-1 min-w-0">
-          <Topbar title={meta.title} subtitle={meta.subtitle} onNavigate={setPage} onRefresh={handleRefresh} isLoading={isLoading} searchQuery={searchQuery} onSearchChange={setSearchQuery} />
-          <div key={page} onClickCapture={blockReadOnlyMutation} className="min-h-[calc(100vh-4rem)] animate-book-page">
+          <Topbar title={meta.title} subtitle={meta.subtitle} onNavigate={navigateToPage} onRefresh={handleRefresh} isLoading={isLoading} searchQuery={searchQuery} onSearchChange={setSearchQuery} />
+          <div key={`${page}-${refreshKey}`} onClickCapture={blockReadOnlyMutation} className="min-h-[calc(100vh-4rem)] animate-book-page">
             {page === 'dashboard' && <DashboardPage />}
             {page === 'events' && <EventsPage searchQuery={searchQuery} />}
             {page === 'notifications' && <NotificationsPage refreshKey={refreshKey} />}
@@ -152,6 +165,7 @@ export default function App() {
           setLogoutConfirmOpen(false);
           void authService.logout();
           setCurrentUser(null);
+          localStorage.removeItem('mg_current_page');
           localStorage.removeItem('mg_user');
           setPage('signin');
         }}

@@ -10,6 +10,8 @@ export interface SystemActivity {
   occurredAt: string;
 }
 
+export const SYSTEM_ACTIVITIES_STORAGE_KEY = 'mg_activities_v2';
+
 export const notifySystem = (title: string, message: string) => {
   if (typeof window === 'undefined') return;
 
@@ -21,9 +23,9 @@ export const notifySystem = (title: string, message: string) => {
   };
 
   try {
-    const stored = localStorage.getItem('mg_activities');
+    const stored = localStorage.getItem(SYSTEM_ACTIVITIES_STORAGE_KEY);
     const activities = stored ? (JSON.parse(stored) as SystemActivity[]) : [];
-    localStorage.setItem('mg_activities', JSON.stringify([activity, ...activities].slice(0, 10)));
+    localStorage.setItem(SYSTEM_ACTIVITIES_STORAGE_KEY, JSON.stringify([activity, ...activities].slice(0, 10)));
   } catch {
     // Activity tracking should not prevent the requested action from completing.
   }

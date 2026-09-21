@@ -1,18 +1,11 @@
-import { useMemo, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { ImagePlus, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
-import { usePersistentState } from '@/utils/persistentState';
 import { notifySystem } from '@/utils/systemNotifications';
+import updatesService, { type UpdatePost } from '@/services/updates';
 
-interface EventPost {
-  id: string;
-  title: string;
-  description: string;
-  image: string | null;
-  isNew: boolean;
-  createdAt: string;
+interface EventPost extends UpdatePost {
   expiresAt: string | null;
-  durationDays: number;
 }
 
 const initialPosts: EventPost[] = [
@@ -29,11 +22,22 @@ const emptyForm = {
 };
 
 export default function EventsPage({ searchQuery = '' }: { searchQuery?: string }) {
-  const [posts, setPosts] = usePersistentState<EventPost[]>('events', initialPosts);
+  const [posts, setPosts] = useState<EventPost[]>(initialPosts);
+  const [isLoading, setIsLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  useEffect(() => {
+    void updatesService.getAll()
+      .then((loadedPosts) => setPosts(loadedPosts.map((post) => ({
+        ...post,
+        expiresAt: new Date(new Date(post.createdAt).getTime() + post.durationDays * 86400000).toISOString(),
+      }))))
+      .catch(() => showToast('Unable to load events from the server', 'error'))
+      .finally(() => setIsLoading(false));
+  }, [showToast]);
 
   const visiblePosts = useMemo(
     () =>
@@ -131,33 +135,38 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
       durationDays,
     };
 
-    setPosts((current) => [nextPost, ...current]);
-    notifySystem('Event & Update published', nextPost.title);
-    setForm(emptyForm);
-    setFormOpen(false);
-    showToast(`Event "${nextPost.title}" published successfully!`, 'success');
+    void updatesService.create(nextPost)
+      .then((savedPost) => {
+        setPosts((current) => [{ ...savedPost, expiresAt: nextPost.expiresAt }, ...current]);
+        notifySystem('Event & Update published', savedPost.title);
+        setForm(emptyForm);
+        setFormOpen(false);
+        showToast(`Event "${savedPost.title}" published successfully!`, 'success');
+      })
+      .catch(() => showToast('Unable to save the event to the server', 'error'));
   };
 
   const toggleNewStatus = (postId: string) => {
-    setPosts((current) =>
-      current.map((post) => {
-        if (post.id === postId) {
-          const newStatus = !post.isNew;
-          showToast(
-            newStatus ? `Marked as new` : `Removed from new`,
-            'info',
-          );
-          return { ...post, isNew: newStatus };
-        }
-        return post;
-      }),
-    );
+    const post = posts.find((item) => item.id === postId);
+    if (!post) return;
+    const newStatus = !post.isNew;
+    void updatesService.update(postId, { isNew: newStatus })
+      .then((savedPost) => {
+        setPosts((current) => current.map((item) => item.id === postId ? { ...item, ...savedPost, expiresAt: post.expiresAt } : item));
+        showToast(newStatus ? 'Marked as new' : 'Removed from new', 'info');
+      })
+      .catch(() => showToast('Unable to update the event on the server', 'error'));
   };
 
   const removePost = (postId: string) => {
     const post = posts.find((p) => p.id === postId);
-    setPosts((current) => current.filter((post) => post.id !== postId));
-    showToast(`Event "${post?.title}" deleted`, 'info');
+    if (!post) return;
+    void updatesService.delete(postId)
+      .then(() => {
+        setPosts((current) => current.filter((item) => item.id !== postId));
+        showToast(`Event "${post.title}" deleted`, 'info');
+      })
+      .catch(() => showToast('Unable to delete the event from the server', 'error'));
   };
 
   return (
@@ -191,6 +200,7 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
         </div>
       </div>
 
+      {isLoading ? <p className="text-sm text-neutral-500">Loading events...</p> : null}
       <div className="grid gap-5 xl:grid-cols-4 lg:grid-cols-2">
         {filteredPosts.map((post) => (
           <article

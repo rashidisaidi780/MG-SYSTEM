@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Edit3, Plus, Trash2, Users, MoreHorizontal } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
+import departmentsService from '@/services/departments';
 import { usePersistentState } from '@/utils/persistentState';
 
 interface Department {
@@ -26,13 +27,25 @@ const emptyDepartment: Department = {
 };
 
 export default function DepartmentsPage({ searchQuery = '' }: { searchQuery?: string }) {
-  const [departments, setDepartments] = usePersistentState<Department[]>('departments', initialDepartments);
+  const [departments, setDepartments] = useState<Department[]>(initialDepartments);
+  const [workers] = usePersistentState<{ department: string }[]>('workers', []);
+  const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [formDepartment, setFormDepartment] = useState<Department>(emptyDepartment);
   const [viewDepartment, setViewDepartment] = useState<Department | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  useEffect(() => {
+    void departmentsService.getAll()
+      .then((loadedDepartments) => setDepartments(loadedDepartments.map((department) => ({
+        ...department,
+        peopleCount: department.peopleCount + workers.filter((worker) => worker.department === department.name).length,
+      }))))
+      .catch(() => showToast('Unable to load departments from the server', 'error'))
+      .finally(() => setIsLoading(false));
+  }, [showToast, workers]);
 
   const filteredDepartments = useMemo(() => {
     if (!searchQuery.trim()) return departments;
@@ -60,27 +73,50 @@ export default function DepartmentsPage({ searchQuery = '' }: { searchQuery?: st
       return;
     }
 
-    const department = { ...formDepartment, peopleCount: Math.max(0, Math.floor(Number(formDepartment.peopleCount) || 0)) };
-    if (formMode === 'add') {
-      setDepartments((current) => [department, ...current]);
-      notifySystem('Department created', `${department.name} was added to departments.`);
-      showToast(`Department "${department.name}" created successfully`, 'success');
-    } else {
-      setDepartments((current) => current.map((item) => item.id === department.id ? department : item));
-      notifySystem('Department updated', `${department.name} details were updated.`);
-      showToast(`Department "${department.name}" updated successfully`, 'success');
-    }
-    closeForm();
+    const department = { ...formDepartment };
+    const request = {
+      name: department.name,
+      description: department.description,
+      head: department.head,
+      status: department.status,
+    };
+    const saveRequest = formMode === 'add'
+      ? departmentsService.create(request)
+      : departmentsService.update(department.id, request);
+
+    void saveRequest
+      .then((savedDepartment) => {
+        const savedWithWorkerCount = {
+          ...savedDepartment,
+          peopleCount: savedDepartment.peopleCount + workers.filter((worker) => worker.department === savedDepartment.name).length,
+        };
+        setDepartments((current) => formMode === 'add'
+          ? [savedWithWorkerCount, ...current]
+          : current.map((item) => item.id === savedWithWorkerCount.id ? savedWithWorkerCount : item));
+        notifySystem(formMode === 'add' ? 'Department created' : 'Department updated', `${department.name} ${formMode === 'add' ? 'was added to' : 'details were updated in'} departments.`);
+        showToast(`Department "${department.name}" ${formMode === 'add' ? 'created' : 'updated'} successfully`, 'success');
+        closeForm();
+      })
+      .catch((error: { details?: { message?: string; errors?: Record<string, string[]> } }) => {
+        const validationMessage = error.details?.errors
+          ? Object.values(error.details.errors).flat()[0]
+          : undefined;
+        showToast(validationMessage || error.details?.message || 'Unable to save the department to the server', 'error');
+      });
   };
 
   const handleDelete = (id: string) => {
     const department = departments.find((item) => item.id === id);
-    setDepartments((current) => current.filter((item) => item.id !== id));
-    if (department) {
-      notifySystem('Department deleted', `${department.name} was removed from departments.`);
-      showToast(`Department "${department.name}" deleted`, 'info');
-    }
-    setPendingDeleteId(null);
+    void departmentsService.delete(id)
+      .then(() => {
+        setDepartments((current) => current.filter((item) => item.id !== id));
+        if (department) {
+          notifySystem('Department deleted', `${department.name} was removed from departments.`);
+          showToast(`Department "${department.name}" deleted`, 'info');
+        }
+        setPendingDeleteId(null);
+      })
+      .catch(() => showToast('Unable to delete the department from the server', 'error'));
   };
 
   return (
@@ -95,6 +131,7 @@ export default function DepartmentsPage({ searchQuery = '' }: { searchQuery?: st
         </button>
       </div>
 
+      {isLoading ? <p className="text-sm text-neutral-500">Loading departments...</p> : null}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {filteredDepartments.map((department) => (
           <div key={department.id} className="rounded-xl border border-neutral-200 bg-white p-5 transition-all hover:-translate-y-0.5 hover:shadow-sm">
@@ -147,7 +184,7 @@ export default function DepartmentsPage({ searchQuery = '' }: { searchQuery?: st
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/30 px-4 py-6 backdrop-blur-sm">
           <div className="my-auto max-h-[calc(100vh-3rem)] w-full max-w-2xl overflow-y-auto rounded-[28px] bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4 mb-6"><div><p className="text-xs uppercase tracking-[0.24em] text-neutral-400">{formMode === 'add' ? 'New department' : 'Edit department'}</p><h3 className="mt-1 text-xl font-semibold">{formMode === 'add' ? 'Add department details' : 'Update department details'}</h3></div><button onClick={closeForm} className="rounded-2xl px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-100">Cancel</button></div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><label className="space-y-2 text-sm font-medium text-neutral-700">Department name<input value={formDepartment.name} onChange={(e) => setFormDepartment((current) => ({ ...current, name: e.target.value }))} placeholder="Enter department name" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" /></label><label className="space-y-2 text-sm font-medium text-neutral-700">Department head<input value={formDepartment.head} onChange={(e) => setFormDepartment((current) => ({ ...current, head: e.target.value }))} placeholder="Enter department head" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" /></label><label className="space-y-2 text-sm font-medium text-neutral-700">Number of people<input type="number" min="0" value={formDepartment.peopleCount} onChange={(e) => setFormDepartment((current) => ({ ...current, peopleCount: Number(e.target.value) }))} className="w-full rounded-2xl border border-neutral-200 px-3 py-2" /></label><label className="space-y-2 text-sm font-medium text-neutral-700">Status<select value={formDepartment.status} onChange={(e) => setFormDepartment((current) => ({ ...current, status: e.target.value as Department['status'] }))} className="w-full rounded-2xl border border-neutral-200 px-3 py-2"><option>Active</option><option>Inactive</option></select></label><label className="space-y-2 text-sm font-medium text-neutral-700 sm:col-span-2">Description<textarea value={formDepartment.description} onChange={(e) => setFormDepartment((current) => ({ ...current, description: e.target.value }))} placeholder="Describe this department" className="min-h-28 w-full resize-y rounded-2xl border border-neutral-200 px-3 py-2" /></label></div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2"><label className="space-y-2 text-sm font-medium text-neutral-700">Department name<input value={formDepartment.name} onChange={(e) => setFormDepartment((current) => ({ ...current, name: e.target.value }))} placeholder="Enter department name" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" /></label><label className="space-y-2 text-sm font-medium text-neutral-700">Department head<input value={formDepartment.head} onChange={(e) => setFormDepartment((current) => ({ ...current, head: e.target.value }))} placeholder="Enter department head" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" /></label><div className="space-y-2 text-sm font-medium text-neutral-700"><span>Number of people</span><div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-neutral-500">Calculated from users and workers</div></div><label className="space-y-2 text-sm font-medium text-neutral-700">Status<select value={formDepartment.status} onChange={(e) => setFormDepartment((current) => ({ ...current, status: e.target.value as Department['status'] }))} className="w-full rounded-2xl border border-neutral-200 px-3 py-2"><option>Active</option><option>Inactive</option></select></label><label className="space-y-2 text-sm font-medium text-neutral-700 sm:col-span-2">Description<textarea value={formDepartment.description} onChange={(e) => setFormDepartment((current) => ({ ...current, description: e.target.value }))} placeholder="Describe this department" className="min-h-28 w-full resize-y rounded-2xl border border-neutral-200 px-3 py-2" /></label></div>
             <div className="mt-6 flex justify-end gap-3"><button onClick={closeForm} className="rounded-3xl border border-neutral-200 px-4 py-2 text-sm">Cancel</button><button data-mutation-control onClick={handleSave} className="rounded-3xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800">{formMode === 'add' ? 'Create department' : 'Save changes'}</button></div>
           </div>
         </div>

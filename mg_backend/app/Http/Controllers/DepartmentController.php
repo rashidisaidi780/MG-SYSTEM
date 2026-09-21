@@ -10,7 +10,12 @@ class DepartmentController extends Controller
     // Get all departments
     public function index()
     {
-        $departments = Department::orderBy('created_at', 'desc')->get();
+        $departments = Department::withCount(['users', 'workers'])
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->each(function (Department $department) {
+                $department->number_of_people = $department->users_count + $department->workers_count;
+            });
 
         return response()->json([
             'success' => true,
@@ -24,12 +29,14 @@ class DepartmentController extends Controller
         $validated = $request->validate([
             'department_id' => 'required|string|max:255|unique:departments,department_id',
             'department_name' => 'required|string|max:255',
+            'department_head' => 'required|string|max:255',
             'number_of_people' => 'nullable|integer|min:0',
             'department_status' => 'nullable|string|max:50',
             'department_description' => 'nullable|string',
         ]);
 
-        $department = Department::create($validated);
+        $department = Department::withCount(['users', 'workers'])->find(Department::create($validated)->id);
+        $department->number_of_people = $department->users_count + $department->workers_count;
 
         return response()->json([
             'success' => true,
@@ -41,7 +48,7 @@ class DepartmentController extends Controller
     // Get single department
     public function show($id)
     {
-        $department = Department::find($id);
+        $department = Department::withCount(['users', 'workers'])->find($id);
 
         if (!$department) {
             return response()->json([
@@ -49,6 +56,8 @@ class DepartmentController extends Controller
                 'message' => 'Department not found'
             ], 404);
         }
+
+        $department->number_of_people = $department->users_count + $department->workers_count;
 
         return response()->json([
             'success' => true,
@@ -69,14 +78,17 @@ class DepartmentController extends Controller
         }
 
         $validated = $request->validate([
-            'department_id' => 'required|string|max:255|unique:departments,department_id,' . $id,
-            'department_name' => 'required|string|max:255',
+            'department_id' => 'sometimes|string|max:255|unique:departments,department_id,' . $id,
+            'department_name' => 'sometimes|string|max:255',
+            'department_head' => 'sometimes|string|max:255',
             'number_of_people' => 'nullable|integer|min:0',
             'department_status' => 'nullable|string|max:50',
             'department_description' => 'nullable|string',
         ]);
 
         $department->update($validated);
+        $department->loadCount(['users', 'workers']);
+        $department->number_of_people = $department->users_count + $department->workers_count;
 
         return response()->json([
             'success' => true,
