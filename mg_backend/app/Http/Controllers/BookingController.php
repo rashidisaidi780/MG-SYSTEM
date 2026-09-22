@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Service;
 use App\Models\Client;
 use App\Models\Worker;
+use Illuminate\Support\Str;
 
 class BookingController extends Controller
 {
@@ -41,7 +42,7 @@ class BookingController extends Controller
         }
 
         $validated = $request->validate([
-            'booking_id' => 'required|string|max:255|unique:bookings,booking_id',
+            'booking_id' => 'sometimes|string|max:255|unique:bookings,booking_id',
 
             'client_id' => 'required|exists:clients,id',
 
@@ -58,6 +59,7 @@ class BookingController extends Controller
             'booking_notes' => 'nullable|string',
         ]);
 
+        $validated['booking_id'] ??= 'BO-' . Str::upper(Str::random(12));
         $booking = Booking::create($validated);
 
         return response()->json([
@@ -116,7 +118,7 @@ class BookingController extends Controller
         }
 
         $validated = $request->validate([
-            'booking_id' => 'required|string|max:255|unique:bookings,booking_id,' . $booking->id,
+            'booking_id' => 'sometimes|string|max:255|unique:bookings,booking_id,' . $booking->id,
 
             'client_id' => 'required|exists:clients,id',
 

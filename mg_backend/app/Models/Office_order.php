@@ -26,4 +26,9 @@ class Office_order extends Model
         'order_date' => 'date',
     ];
 
+    public function department()
+    {
+        return $this->belongsTo(Department::class, 'department_id');
+    }
+
 }

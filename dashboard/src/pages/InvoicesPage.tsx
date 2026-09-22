@@ -6,6 +6,7 @@ import { notifySystem } from '@/utils/systemNotifications';
 import logoImg from '@/assets/logo.jpeg';
 import invoicesService, { type Invoice as ServiceInvoice } from '@/services/invoices';
 import clientsService, { type Client as ServiceClient } from '@/services/clients';
+import { authService } from '@/services/auth';
 
 const companyProfile = {
   name: 'MAKEZY GROUP',
@@ -150,9 +151,14 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
   }, [showToast]);
 
   useEffect(() => {
+    if (!authService.hasPermission('Clients')) return;
+
     void clientsService.getAll()
       .then((loadedClients) => setClients(loadedClients.map(toPageClient)))
-      .catch(() => showToast('Unable to load clients from the server', 'error'));
+      .catch((error) => {
+        if (error && typeof error === 'object' && 'status' in error && error.status === 403) return;
+        showToast('Unable to load clients from the server', 'error');
+      });
   }, [showToast]);
 
   const filteredInvoices = useMemo(() => {

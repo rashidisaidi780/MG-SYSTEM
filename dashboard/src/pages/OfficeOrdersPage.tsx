@@ -29,6 +29,16 @@ const statusStyles: Record<OfficeOrder['status'], string> = {
 
 const emptyOrder: OfficeOrder = { id: '', department: '', subject: '', description: '', requester: '', date: '', status: 'Pending', notes: '' };
 
+const getOfficeOrderSaveError = (error: unknown) => {
+  if (typeof error === 'object' && error !== null && 'details' in error) {
+    const details = (error as { details?: { errors?: Record<string, string[]>; message?: string } }).details;
+    const messages = details?.errors ? Object.values(details.errors).flat() : [];
+    if (messages.length) return messages.join(' ');
+    if (details?.message) return details.message;
+  }
+  return 'Unable to save office order to the server';
+};
+
 export default function OfficeOrdersPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [orders, setOrders] = useState<OfficeOrder[]>(initialOrders);
   const [departments] = useDepartments();
@@ -55,7 +65,7 @@ export default function OfficeOrdersPage({ searchQuery = '' }: { searchQuery?: s
 
   const openForm = (mode: 'add' | 'edit', order?: OfficeOrder) => {
     setFormMode(mode);
-    setFormOrder(order ? { ...order } : { ...emptyOrder, id: `OO-${String(orders.length + 1).padStart(3, '0')}` });
+    setFormOrder(order ? { ...order } : { ...emptyOrder, id: `OO-${Date.now()}` });
     setIsFormOpen(true);
   };
 
@@ -77,7 +87,7 @@ export default function OfficeOrdersPage({ searchQuery = '' }: { searchQuery?: s
       notifySystem(formMode === 'add' ? 'Office order created' : 'Office order updated', `${pageOrder.id} details were saved.`);
       showToast(`Office order "${pageOrder.id}" ${formMode === 'add' ? 'created' : 'updated'} successfully`, 'success');
       closeForm();
-    }).catch(() => showToast('Unable to save office order to the server', 'error'));
+    }).catch((error) => showToast(getOfficeOrderSaveError(error), 'error'));
   };
 
   const handleDelete = (id: string) => {

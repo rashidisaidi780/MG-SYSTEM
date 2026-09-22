@@ -58,6 +58,11 @@ export interface UpdateProjectRequest {
 }
 
 class ProjectsService {
+  async getCount(): Promise<number> {
+    const response = await apiClient.get<{ data: { total?: number } }>('/projects?limit=1');
+    return response.data.total ?? 0;
+  }
+
   async getAll(params?: { search?: string; status?: string; page?: number; limit?: number }): Promise<Project[]> {
     const queryParams = new URLSearchParams();
     if (params?.search) queryParams.append('search', params.search);

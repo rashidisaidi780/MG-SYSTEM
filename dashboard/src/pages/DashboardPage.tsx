@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { FileText, FolderKanban, Users, ClipboardList, Activity, AlertTriangle } from 'lucide-react';
 import { SYSTEM_ACTIVITIES_STORAGE_KEY, type SystemActivity } from '@/utils/systemNotifications';
 import invoicesService from '@/services/invoices';
+import projectsService from '@/services/projects';
+import { authService } from '@/services/auth';
 
 const readCount = (key: string) => {
   try {
@@ -14,6 +16,7 @@ const readCount = (key: string) => {
 
 export default function DashboardPage() {
   const [invoiceCount, setInvoiceCount] = useState(0);
+  const [projectCount, setProjectCount] = useState(0);
   const [activities, setActivities] = useState<SystemActivity[]>(() => {
     try {
       const stored = localStorage.getItem(SYSTEM_ACTIVITIES_STORAGE_KEY);
@@ -40,7 +43,18 @@ export default function DashboardPage() {
       .catch(() => setInvoiceCount(0));
   }, []);
 
-  const projects = readCount('projects');
+  useEffect(() => {
+    if (!authService.hasPermission('Projects')) return;
+
+    void projectsService.getCount()
+      .then(setProjectCount)
+      .catch((error) => {
+        if (error && typeof error === 'object' && 'status' in error && error.status === 403) return;
+        setProjectCount(0);
+      });
+  }, []);
+
+  const projects = projectCount;
   const clients = readCount('clients');
   const orders = readCount('office-orders') + readCount('bookings');
   const today = new Date();

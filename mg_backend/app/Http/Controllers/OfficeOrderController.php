@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Office_order;
 use App\Models\Department;
+use Illuminate\Support\Str;
 
 class OfficeOrderController extends Controller
 {
@@ -29,7 +30,7 @@ class OfficeOrderController extends Controller
         }
 
         $validated = $request->validate([
-            'order_id' => 'required|string|max:255|unique:orders,order_id',
+            'order_id' => 'sometimes|string|max:255|unique:orders,order_id',
 
             'department_id' => 'nullable|exists:departments,id',
 
@@ -46,6 +47,7 @@ class OfficeOrderController extends Controller
             'order_notes' => 'nullable|string',
         ]);
 
+        $validated['order_id'] ??= 'OO-' . Str::upper(Str::random(12));
         $order = Office_order::create($validated);
 
         return response()->json([

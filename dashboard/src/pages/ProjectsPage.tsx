@@ -5,6 +5,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import projectsService from '@/services/projects';
 import clientsService from '@/services/clients';
+import { authService } from '@/services/auth';
 
 interface ClientOption {
   id: string;
@@ -108,7 +109,12 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
 
   useEffect(() => {
     void projectsService.getAll().then((loaded) => setProjectList(loaded.map((project) => ({ ...project, clientId: project.client, budget: String(project.budget), lead: '' })))).catch(() => showToast('Unable to load projects from the server', 'error'));
-    void clientsService.getAll().then((loaded) => setClients(loaded.map((client) => ({ id: client.id, name: client.name })))).catch(() => showToast('Unable to load clients from the server', 'error'));
+    if (authService.hasPermission('Clients')) {
+      void clientsService.getAll().then((loaded) => setClients(loaded.map((client) => ({ id: client.id, name: client.name })))).catch((error) => {
+        if (error && typeof error === 'object' && 'status' in error && error.status === 403) return;
+        showToast('Unable to load clients from the server', 'error');
+      });
+    }
   }, [showToast]);
 
   const filteredProjects = useMemo(() => {

@@ -35,6 +35,7 @@ interface BookingApiRecord {
 export interface CreateBookingRequest {
   id?: string;
   client: string;
+  clientId?: string;
   service: string;
   date: string;
   time: string;
@@ -47,6 +48,7 @@ export interface UpdateBookingRequest {
   id?: string;
   assignee?: string;
   client?: string;
+  clientId?: string;
   service?: string;
   date?: string;
   time?: string;
@@ -76,12 +78,12 @@ class BookingsService {
   }
 
   async create(data: CreateBookingRequest): Promise<Booking> {
-    const response = await apiClient.post<{ data: BookingApiRecord }>('/bookings', toBookingPayload(data));
+    const response = await apiClient.post<{ data: BookingApiRecord }>('/bookings', toBookingPayload(data, false));
     return toBooking(response.data);
   }
 
   async update(id: string, data: UpdateBookingRequest): Promise<Booking> {
-    const response = await apiClient.put<{ data: BookingApiRecord }>(`/bookings/${id}`, toBookingPayload(data));
+    const response = await apiClient.put<{ data: BookingApiRecord }>(`/bookings/${id}`, toBookingPayload(data, true));
     return toBooking(response.data);
   }
 
@@ -109,9 +111,9 @@ const toBooking = (booking: BookingApiRecord): Booking => ({
   notes: booking.booking_notes ?? '',
 });
 
-const toBookingPayload = (booking: CreateBookingRequest | UpdateBookingRequest) => ({
-  ...(booking.id !== undefined ? { booking_id: booking.id } : {}),
-  ...(booking.client !== undefined ? { client_name: booking.client } : {}),
+const toBookingPayload = (booking: CreateBookingRequest | UpdateBookingRequest, includeBookingId: boolean) => ({
+  ...(includeBookingId && booking.id !== undefined ? { booking_id: booking.id } : {}),
+  ...(booking.clientId !== undefined ? { client_id: Number(booking.clientId) } : booking.client !== undefined ? { client_name: booking.client } : {}),
   ...(booking.service !== undefined ? { service_name: booking.service } : {}),
   ...(booking.assignee !== undefined ? { assignee_name: booking.assignee } : {}),
   ...(booking.date !== undefined ? { booking_date: booking.date } : {}),

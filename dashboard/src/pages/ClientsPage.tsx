@@ -4,6 +4,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import clientsService, { type Client as ServiceClient } from '@/services/clients';
+import { authService } from '@/services/auth';
 
 interface Client {
   id: string;
@@ -51,9 +52,17 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
   const { showToast } = useToast();
 
   useEffect(() => {
+    if (!authService.hasPermission('Clients')) {
+      setIsLoading(false);
+      return;
+    }
+
     void clientsService.getAll()
       .then((loadedClients) => setClients(loadedClients.map((client) => toPageClient(client))))
-      .catch(() => showToast('Unable to load clients from the server', 'error'))
+      .catch((error) => {
+        if (error && typeof error === 'object' && 'status' in error && error.status === 403) return;
+        showToast('Unable to load clients from the server', 'error');
+      })
       .finally(() => setIsLoading(false));
   }, [showToast]);
 

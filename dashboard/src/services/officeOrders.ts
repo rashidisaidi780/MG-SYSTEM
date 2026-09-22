@@ -78,12 +78,12 @@ class OfficeOrdersService {
   }
 
   async create(data: CreateOfficeOrderRequest): Promise<OfficeOrder> {
-    const response = await apiClient.post<{ data: OfficeOrderApiRecord }>('/officeorders', toOfficeOrderPayload(data));
+    const response = await apiClient.post<{ data: OfficeOrderApiRecord }>('/officeorders', toOfficeOrderPayload(data, false));
     return toOfficeOrder(response.data);
   }
 
   async update(id: string, data: UpdateOfficeOrderRequest): Promise<OfficeOrder> {
-    const response = await apiClient.put<{ data: OfficeOrderApiRecord }>(`/officeorders/${id}`, toOfficeOrderPayload(data));
+    const response = await apiClient.put<{ data: OfficeOrderApiRecord }>(`/officeorders/${id}`, toOfficeOrderPayload(data, true));
     return toOfficeOrder(response.data);
   }
 
@@ -114,8 +114,8 @@ const toOfficeOrder = (order: OfficeOrderApiRecord): OfficeOrder => ({
   requestDate: order.order_date, notes: order.order_notes ?? '',
 });
 
-const toOfficeOrderPayload = (order: CreateOfficeOrderRequest | UpdateOfficeOrderRequest) => ({
-  ...(order.id !== undefined ? { order_id: order.id } : {}),
+const toOfficeOrderPayload = (order: CreateOfficeOrderRequest | UpdateOfficeOrderRequest, includeOrderId: boolean) => ({
+  ...(includeOrderId && order.id !== undefined ? { order_id: order.id } : {}),
   ...(order.item !== undefined ? { order_subject: order.item } : {}),
   ...(order.department !== undefined ? { department_name: order.department } : {}),
   ...(order.requestedBy !== undefined ? { requester_name: order.requestedBy } : {}),

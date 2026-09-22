@@ -74,6 +74,17 @@ class AuthService {
       return null;
     }
   }
+
+  hasPermission(area: string, required: 'View' | 'Edit' = 'View'): boolean {
+    const user = this.getStoredUser();
+    if (user?.role === 'Admin') return true;
+    if (Array.isArray(user?.permissions)) return user.permissions.includes('*') || user.permissions.includes(area);
+
+    const level = user?.permissions?.[area] || 'None';
+    return required === 'View'
+      ? ['View', 'Edit', 'Both'].includes(level)
+      : ['Edit', 'Both'].includes(level);
+  }
 }
 
 export const authService = new AuthService();

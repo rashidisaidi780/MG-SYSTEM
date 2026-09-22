@@ -4,6 +4,12 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import bookingsService from '@/services/bookings';
+import clientsService from '@/services/clients';
+
+interface ClientOption {
+  id: string;
+  name: string;
+}
 
 interface Booking {
   id: string;
@@ -36,10 +42,19 @@ const emptyBooking: Booking = {
   notes: '',
 };
 
-const existingClients: string[] = [];
+const getBookingSaveError = (error: unknown) => {
+  if (typeof error === 'object' && error !== null && 'details' in error) {
+    const details = (error as { details?: { errors?: Record<string, string[]>; message?: string } }).details;
+    const messages = details?.errors ? Object.values(details.errors).flat() : [];
+    if (messages.length) return messages.join(' ');
+    if (details?.message) return details.message;
+  }
+  return 'Unable to save booking to the server';
+};
 
 export default function BookingsPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [bookings, setBookings] = useState<Booking[]>(initialBookings);
+  const [clients, setClients] = useState<ClientOption[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [formBooking, setFormBooking] = useState<Booking>(emptyBooking);
@@ -51,6 +66,12 @@ export default function BookingsPage({ searchQuery = '' }: { searchQuery?: strin
     void bookingsService.getAll()
       .then((loaded) => setBookings(loaded.map((booking) => ({ ...booking, assignee: booking.assignee ?? '', status: booking.status === 'Canceled' ? 'Cancelled' : booking.status }))))
       .catch(() => showToast('Unable to load bookings from the server', 'error'));
+  }, [showToast]);
+
+  useEffect(() => {
+    void clientsService.getAll()
+      .then((loadedClients) => setClients(loadedClients.map((client) => ({ id: client.id, name: client.name }))))
+      .catch(() => showToast('Unable to load clients for booking selection', 'error'));
   }, [showToast]);
 
   const filteredBookings = useMemo(() => {
@@ -67,7 +88,9 @@ export default function BookingsPage({ searchQuery = '' }: { searchQuery?: strin
 
   const openForm = (mode: 'add' | 'edit', booking?: Booking) => {
     setFormMode(mode);
-    setFormBooking(booking ? { ...booking } : { ...emptyBooking, id: `BO-${Date.now().toString().slice(-4)}` });
+    setFormBooking(booking
+      ? { ...booking, client: clients.find((client) => client.name === booking.client)?.id ?? '' }
+      : { ...emptyBooking, id: `BO-${Date.now()}` });
     setIsFormOpen(true);
   };
 
@@ -82,15 +105,15 @@ export default function BookingsPage({ searchQuery = '' }: { searchQuery?: strin
       return;
     }
 
-    const request = { id: formBooking.id, client: formBooking.client, service: formBooking.service, assignee: formBooking.assignee, date: formBooking.date, time: formBooking.time, status: formBooking.status === 'Cancelled' ? 'Canceled' as const : formBooking.status, notes: formBooking.notes };
+    const request = { id: formBooking.id, client: formBooking.client, clientId: formBooking.client, service: formBooking.service, assignee: formBooking.assignee, date: formBooking.date, time: formBooking.time, status: formBooking.status === 'Cancelled' ? 'Canceled' as const : formBooking.status, notes: formBooking.notes };
     const saveRequest = formMode === 'add' ? bookingsService.create(request) : bookingsService.update(formBooking.id, request);
     void saveRequest.then((saved) => {
-      const pageBooking = { ...formBooking, id: saved.id, status: saved.status === 'Canceled' ? 'Cancelled' : saved.status } as Booking;
+      const pageBooking = { ...formBooking, id: saved.id, client: saved.client, status: saved.status === 'Canceled' ? 'Cancelled' : saved.status } as Booking;
       setBookings((current) => formMode === 'add' ? [pageBooking, ...current] : current.map((booking) => booking.id === pageBooking.id ? pageBooking : booking));
       notifySystem(formMode === 'add' ? 'Booking created' : 'Booking updated', `${pageBooking.id} details were saved.`);
       showToast(`Booking "${pageBooking.id}" ${formMode === 'add' ? 'created' : 'updated'} successfully`, 'success');
       closeForm();
-    }).catch(() => showToast('Unable to save booking to the server', 'error'));
+    }).catch((error) => showToast(getBookingSaveError(error), 'error'));
   };
 
   const handleDelete = (id: string) => {
@@ -219,7 +242,7 @@ export default function BookingsPage({ searchQuery = '' }: { searchQuery?: strin
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label className="space-y-2 text-sm font-medium text-neutral-700">Booking ID<input value={formBooking.id} readOnly className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-3 py-2" /></label>
-              <label className="space-y-2 text-sm font-medium text-neutral-700">Client<input value={formBooking.client} onChange={(e) => setFormBooking((current) => ({ ...current, client: e.target.value }))} placeholder="Enter client name" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" /></label>
+              <label className="space-y-2 text-sm font-medium text-neutral-700">Client<select value={formBooking.client} onChange={(e) => setFormBooking((current) => ({ ...current, client: e.target.value }))} className="w-full rounded-2xl border border-neutral-200 px-3 py-2"><option value="" disabled>Select existing client</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}</select></label>
               <label className="space-y-2 text-sm font-medium text-neutral-700 sm:col-span-2">Service details<textarea value={formBooking.service} onChange={(e) => setFormBooking((current) => ({ ...current, service: e.target.value }))} placeholder="Enter the service or full booking requirements" className="min-h-28 w-full resize-y rounded-2xl border border-neutral-200 px-3 py-2" /></label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">Assignee<input value={formBooking.assignee} onChange={(e) => setFormBooking((current) => ({ ...current, assignee: e.target.value }))} placeholder="Person responsible" className="w-full rounded-2xl border border-neutral-200 px-3 py-2" /></label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">Date<input type="date" value={formBooking.date} onChange={(e) => setFormBooking((current) => ({ ...current, date: e.target.value }))} className="w-full rounded-2xl border border-neutral-200 px-3 py-2" /></label>
