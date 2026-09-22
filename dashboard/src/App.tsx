@@ -65,6 +65,17 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const meta = pageMeta[page];
 
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      setCurrentUser(null);
+      setPage('signin');
+      localStorage.removeItem('mg_current_page');
+    };
+
+    window.addEventListener('auth-expired', handleAuthExpired);
+    return () => window.removeEventListener('auth-expired', handleAuthExpired);
+  }, []);
+
   const handleSignIn = (user: AuthUser) => {
     setCurrentUser(user);
     localStorage.setItem('mg_current_page', 'dashboard');

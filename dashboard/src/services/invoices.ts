@@ -32,7 +32,34 @@ export interface Invoice {
   updatedAt?: string;
 }
 
+interface InvoiceApiRecord {
+  id: number | string;
+  invoice_id: string;
+  client_id: number | string | null;
+  client?: { client_name: string } | null;
+  company_name: string;
+  client_tin: string | null;
+  client_email: string | null;
+  client_phone: string | null;
+  client_address: string | null;
+  country: string | null;
+  invoice_items: InvoiceItem[] | null;
+  item_description: string;
+  item_quantity: number;
+  item_unit_price: number | string;
+  invoice_total_amount: number | string;
+  paid_amount: number | string;
+  invoice_status: string;
+  invoice_date: string;
+  invoice_due_date: string | null;
+  invoice_notes: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface CreateInvoiceRequest {
+  id: string;
+  clientId: string;
   client: string;
   company?: string;
   tin?: string;
@@ -43,10 +70,14 @@ export interface CreateInvoiceRequest {
   items: InvoiceItem[];
   date: string;
   due: string;
+  status?: Invoice['status'];
+  paidAmount?: number;
   notes?: string;
 }
 
 export interface UpdateInvoiceRequest {
+  id?: string;
+  clientId?: string;
   client?: string;
   company?: string;
   tin?: string;
@@ -73,19 +104,23 @@ class InvoicesService {
     const queryString = queryParams.toString();
     const endpoint = queryString ? `/invoices?${queryString}` : '/invoices';
     
-    return apiClient.get<Invoice[]>(endpoint);
+    const response = await apiClient.get<{ data: InvoiceApiRecord[] }>(endpoint);
+    return response.data.map(toInvoice);
   }
 
   async getById(id: string): Promise<Invoice> {
-    return apiClient.get<Invoice>(`/invoices/${id}`);
+    const response = await apiClient.get<{ data: InvoiceApiRecord }>(`/invoices/${id}`);
+    return toInvoice(response.data);
   }
 
   async create(data: CreateInvoiceRequest): Promise<Invoice> {
-    return apiClient.post<Invoice>('/invoices', data);
+    const response = await apiClient.post<{ data: InvoiceApiRecord }>('/invoices', toApiPayload(data));
+    return toInvoice(response.data);
   }
 
   async update(id: string, data: UpdateInvoiceRequest): Promise<Invoice> {
-    return apiClient.put<Invoice>(`/invoices/${id}`, data);
+    const response = await apiClient.put<{ data: InvoiceApiRecord }>(`/invoices/${id}`, toApiPayload(data));
+    return toInvoice(response.data);
   }
 
   async delete(id: string): Promise<void> {
@@ -125,6 +160,45 @@ class InvoicesService {
     return response.blob();
   }
 }
+
+const toInvoice = (invoice: InvoiceApiRecord): Invoice => ({
+  id: invoice.invoice_id,
+  client: invoice.client?.client_name ?? String(invoice.client_id ?? ''),
+  company: invoice.company_name,
+  tin: invoice.client_tin ?? '',
+  email: invoice.client_email ?? '',
+  phone: invoice.client_phone ?? '',
+  address: invoice.client_address ?? '',
+  country: invoice.country ?? '',
+  items: invoice.invoice_items ?? [{ desc: invoice.item_description, quantity: invoice.item_quantity, amount: Number(invoice.item_unit_price) }],
+  amount: `Tsh ${new Intl.NumberFormat('en-TZ', { maximumFractionDigits: 0 }).format(Number(invoice.invoice_total_amount))}`,
+  paidAmount: Number(invoice.paid_amount),
+  date: new Date(invoice.invoice_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+  due: invoice.invoice_due_date ? new Date(invoice.invoice_due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '',
+  issuedRaw: invoice.invoice_date,
+  dueRaw: invoice.invoice_due_date ?? '',
+  status: (invoice.invoice_status ?? 'unpaid').toLowerCase() === 'paid' ? 'Paid' : (invoice.invoice_status ?? 'unpaid').toLowerCase() === 'overdue' ? 'Overdue' : (invoice.invoice_status ?? 'unpaid').toLowerCase() === 'canceled' ? 'Canceled' : 'Pending',
+  notes: invoice.invoice_notes ?? '',
+  createdAt: invoice.created_at,
+  updatedAt: invoice.updated_at,
+});
+
+const toApiPayload = (invoice: CreateInvoiceRequest | UpdateInvoiceRequest) => ({
+  ...(invoice.clientId !== undefined ? { client_id: invoice.clientId } : {}),
+  ...(invoice.id !== undefined ? { invoice_id: invoice.id } : {}),
+  ...(invoice.company !== undefined ? { company_name: invoice.company || invoice.client } : {}),
+  ...(invoice.tin !== undefined ? { client_tin: invoice.tin } : {}),
+  ...(invoice.email !== undefined ? { client_email: invoice.email } : {}),
+  ...(invoice.phone !== undefined ? { client_phone: invoice.phone } : {}),
+  ...(invoice.address !== undefined ? { client_address: invoice.address } : {}),
+  ...(invoice.country !== undefined ? { country: invoice.country } : {}),
+  ...(invoice.items !== undefined ? { invoice_items: invoice.items } : {}),
+  ...(invoice.date !== undefined ? { invoice_date: invoice.date } : {}),
+  ...(invoice.due !== undefined ? { invoice_due_date: invoice.due || null } : {}),
+  ...(invoice.status !== undefined ? { invoice_status: invoice.status.toLowerCase() } : {}),
+  ...(invoice.paidAmount !== undefined ? { paid_amount: invoice.paidAmount } : {}),
+  ...(invoice.notes !== undefined ? { invoice_notes: invoice.notes } : {}),
+});
 
 export const invoicesService = new InvoicesService();
 export default invoicesService;

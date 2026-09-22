@@ -53,7 +53,9 @@ class WorkerController extends Controller
     // Get single worker
     public function show($id)
     {
-        $worker = Worker::with('department')->find($id);
+        $worker = is_numeric($id)
+            ? Worker::with('department')->find($id)
+            : Worker::with('department')->where('worker_id', $id)->first();
 
         if (!$worker) {
             return response()->json([
@@ -71,7 +73,9 @@ class WorkerController extends Controller
     // Update worker
     public function update(Request $request, $id)
     {
-        $worker = Worker::find($id);
+        $worker = is_numeric($id)
+            ? Worker::find($id)
+            : Worker::where('worker_id', $id)->first();
 
         if (!$worker) {
             return response()->json([
@@ -81,7 +85,7 @@ class WorkerController extends Controller
         }
 
         $validated = $request->validate([
-            'worker_id' => 'required|string|max:255|unique:workers,worker_id,' . $id,
+            'worker_id' => 'sometimes|required|string|max:255|unique:workers,worker_id,' . $worker->id,
             'worker_name' => 'required|string|max:255',
             'worker_email' => 'nullable|email|max:255',
             'worker_tin' => 'nullable|string|max:100',
@@ -110,7 +114,9 @@ class WorkerController extends Controller
     // Delete worker
     public function destroy($id)
     {
-        $worker = Worker::find($id);
+        $worker = is_numeric($id)
+            ? Worker::find($id)
+            : Worker::where('worker_id', $id)->first();
 
         if (!$worker) {
             return response()->json([

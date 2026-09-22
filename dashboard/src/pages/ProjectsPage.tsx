@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, MoreHorizontal, Filter, Edit3, Trash2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
-import { usePersistentState } from '@/utils/persistentState';
+import projectsService from '@/services/projects';
+import clientsService from '@/services/clients';
 
 interface ClientOption {
   id: string;
@@ -23,7 +24,7 @@ interface Project {
   description: string;
 }
 
-const clients: ClientOption[] = [];
+const initialClients: ClientOption[] = [];
 /*
   { id: 'acme', name: 'Acme Co.' },
   { id: 'nimbus', name: 'Nimbus Inc.' },
@@ -95,7 +96,8 @@ const emptyProject: Project = {
 };
 
 export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: string }) {
-  const [projectList, setProjectList] = usePersistentState<Project[]>('projects', initialProjects);
+  const [projectList, setProjectList] = useState<Project[]>(initialProjects);
+  const [clients, setClients] = useState<ClientOption[]>(initialClients);
   const [formOpen, setFormOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
@@ -103,6 +105,11 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
   const [formProject, setFormProject] = useState<Project>(emptyProject);
   const [pendingDeleteProjectId, setPendingDeleteProjectId] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  useEffect(() => {
+    void projectsService.getAll().then((loaded) => setProjectList(loaded.map((project) => ({ ...project, clientId: project.client, budget: String(project.budget), lead: '' })))).catch(() => showToast('Unable to load projects from the server', 'error'));
+    void clientsService.getAll().then((loaded) => setClients(loaded.map((client) => ({ id: client.id, name: client.name })))).catch(() => showToast('Unable to load clients from the server', 'error'));
+  }, [showToast]);
 
   const filteredProjects = useMemo(() => {
     if (!searchQuery.trim()) return projectList;
@@ -148,28 +155,21 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
       return;
     }
 
-    if (formMode === 'add') {
-      const newProject = { ...formProject, id: `project-${Date.now()}` };
-      setProjectList((current) => [newProject, ...current]);
-      notifySystem('Project added', `${newProject.name} was added to the portfolio.`);
-      showToast(`Project "${newProject.name}" added successfully`, 'success');
-    } else {
-      setProjectList((current) =>
-        current.map((project) => (project.id === formProject.id ? { ...formProject } : project)),
-      );
-      if (activeProject?.id === formProject.id) {
-        setActiveProject(formProject);
-      }
-      notifySystem('Project updated', `${formProject.name} details were updated.`);
-      showToast(`Project "${formProject.name}" updated successfully`, 'success');
-    }
-
-    closeForm();
+    const request = { id: formProject.id, name: formProject.name, description: formProject.description, client: formProject.clientId, status: formProject.status === 'In Progress' || formProject.status === 'Review' ? 'Planning' as const : formProject.status, startDate: formProject.startDate, endDate: formProject.endDate, budget: Number(formProject.budget.replace(/[^0-9.-]+/g, '')) || 0, progress: formProject.progress };
+    const saveRequest = formMode === 'add' ? projectsService.create(request) : projectsService.update(formProject.id, request);
+    void saveRequest.then((saved) => {
+      const pageProject = { ...formProject, id: saved.id, clientId: saved.client, budget: String(saved.budget) };
+      setProjectList((current) => formMode === 'add' ? [pageProject, ...current] : current.map((project) => project.id === pageProject.id ? pageProject : project));
+      if (activeProject?.id === pageProject.id) setActiveProject(pageProject);
+      notifySystem(formMode === 'add' ? 'Project added' : 'Project updated', `${saved.name} details were saved.`);
+      showToast(`Project "${saved.name}" ${formMode === 'add' ? 'added' : 'updated'} successfully`, 'success');
+      closeForm();
+    }).catch(() => showToast('Unable to save project to the server', 'error'));
   };
 
   const deleteProject = (projectId: string) => {
     const projectToDelete = projectList.find((project) => project.id === projectId);
-    setProjectList((current) => current.filter((project) => project.id !== projectId));
+    void projectsService.delete(projectId).then(() => setProjectList((current) => current.filter((project) => project.id !== projectId))).catch(() => showToast('Unable to delete project from the server', 'error'));
     if (activeProject?.id === projectId) {
       closeDetail();
     }
@@ -363,12 +363,14 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
                 Client
-                <input
+                <select
                   value={formProject.clientId}
                   onChange={(event) => handleFormChange('clientId', event.target.value)}
-                  placeholder="Enter client name"
                   className="w-full rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
-                />
+                >
+                  <option value="" disabled>Select client</option>
+                  {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
+                </select>
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
                 Project budget

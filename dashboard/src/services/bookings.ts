@@ -12,19 +12,40 @@ export interface Booking {
   time: string;
   status: 'Confirmed' | 'Pending' | 'Canceled' | 'Completed';
   notes: string;
+  assignee?: string;
   createdAt?: string;
   updatedAt?: string;
 }
 
+interface BookingApiRecord {
+  id: number | string;
+  booking_id: string;
+  client_id: number | string;
+  service_id: number | string;
+  assignee: number | string | null;
+  booking_date: string;
+  booking_time: string;
+  booking_status: string;
+  booking_notes: string | null;
+  client?: { client_name: string } | null;
+  service?: { service_name?: string; name?: string } | null;
+  worker?: { worker_name: string } | null;
+}
+
 export interface CreateBookingRequest {
+  id?: string;
   client: string;
   service: string;
   date: string;
   time: string;
   notes?: string;
+  assignee?: string;
+  status?: Booking['status'];
 }
 
 export interface UpdateBookingRequest {
+  id?: string;
+  assignee?: string;
   client?: string;
   service?: string;
   date?: string;
@@ -45,19 +66,23 @@ class BookingsService {
     const queryString = queryParams.toString();
     const endpoint = queryString ? `/bookings?${queryString}` : '/bookings';
     
-    return apiClient.get<Booking[]>(endpoint);
+    const response = await apiClient.get<{ data: BookingApiRecord[] }>(endpoint);
+    return response.data.map(toBooking);
   }
 
   async getById(id: string): Promise<Booking> {
-    return apiClient.get<Booking>(`/bookings/${id}`);
+    const response = await apiClient.get<{ data: BookingApiRecord }>(`/bookings/${id}`);
+    return toBooking(response.data);
   }
 
   async create(data: CreateBookingRequest): Promise<Booking> {
-    return apiClient.post<Booking>('/bookings', data);
+    const response = await apiClient.post<{ data: BookingApiRecord }>('/bookings', toBookingPayload(data));
+    return toBooking(response.data);
   }
 
   async update(id: string, data: UpdateBookingRequest): Promise<Booking> {
-    return apiClient.put<Booking>(`/bookings/${id}`, data);
+    const response = await apiClient.put<{ data: BookingApiRecord }>(`/bookings/${id}`, toBookingPayload(data));
+    return toBooking(response.data);
   }
 
   async delete(id: string): Promise<void> {
@@ -65,9 +90,32 @@ class BookingsService {
   }
 
   async updateStatus(id: string, status: Booking['status']): Promise<Booking> {
-    return apiClient.patch<Booking>(`/bookings/${id}`, { status });
+    const response = await apiClient.patch<{ data: BookingApiRecord }>(`/bookings/${id}`, { booking_status: status.toLowerCase() });
+    return toBooking(response.data);
   }
 }
 
 export const bookingsService = new BookingsService();
 export default bookingsService;
+
+const toBooking = (booking: BookingApiRecord): Booking => ({
+  id: booking.booking_id,
+  client: booking.client?.client_name ?? String(booking.client_id),
+  service: booking.service?.service_name ?? booking.service?.name ?? String(booking.service_id),
+  date: booking.booking_date,
+  time: booking.booking_time.slice(0, 5),
+  assignee: booking.worker?.worker_name ?? String(booking.assignee ?? ''),
+  status: booking.booking_status.toLowerCase() === 'confirmed' ? 'Confirmed' : booking.booking_status.toLowerCase() === 'completed' ? 'Completed' : booking.booking_status.toLowerCase() === 'cancelled' ? 'Canceled' : 'Pending',
+  notes: booking.booking_notes ?? '',
+});
+
+const toBookingPayload = (booking: CreateBookingRequest | UpdateBookingRequest) => ({
+  ...(booking.id !== undefined ? { booking_id: booking.id } : {}),
+  ...(booking.client !== undefined ? { client_name: booking.client } : {}),
+  ...(booking.service !== undefined ? { service_name: booking.service } : {}),
+  ...(booking.assignee !== undefined ? { assignee_name: booking.assignee } : {}),
+  ...(booking.date !== undefined ? { booking_date: booking.date } : {}),
+  ...(booking.time !== undefined ? { booking_time: booking.time } : {}),
+  ...(booking.status !== undefined ? { booking_status: booking.status.toLowerCase() } : {}),
+  ...(booking.notes !== undefined ? { booking_notes: booking.notes } : {}),
+});

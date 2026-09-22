@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Office_order;
+use App\Models\Department;
 
 class OfficeOrderController extends Controller
 {
@@ -23,6 +24,10 @@ class OfficeOrderController extends Controller
     // Create order
     public function store(Request $request)
     {
+        if ($request->filled('department_name')) {
+            $request->merge(['department_id' => Department::where('department_name', $request->input('department_name'))->value('id')]);
+        }
+
         $validated = $request->validate([
             'order_id' => 'required|string|max:255|unique:orders,order_id',
 
@@ -53,7 +58,7 @@ class OfficeOrderController extends Controller
     // Get one order
     public function show($id)
     {
-        $order = Office_order::with('department')->find($id);
+        $order = is_numeric($id) ? Office_order::with('department')->find($id) : Office_order::with('department')->where('order_id', $id)->first();
 
         if (!$order) {
             return response()->json([
@@ -71,7 +76,7 @@ class OfficeOrderController extends Controller
     // Update order
     public function update(Request $request, $id)
     {
-        $order = Office_order::find($id);
+        $order = is_numeric($id) ? Office_order::find($id) : Office_order::where('order_id', $id)->first();
 
         if (!$order) {
             return response()->json([
@@ -80,8 +85,12 @@ class OfficeOrderController extends Controller
             ], 404);
         }
 
+        if ($request->filled('department_name')) {
+            $request->merge(['department_id' => Department::where('department_name', $request->input('department_name'))->value('id')]);
+        }
+
         $validated = $request->validate([
-            'order_id' => 'required|string|max:255|unique:orders,order_id,' . $id,
+            'order_id' => 'required|string|max:255|unique:orders,order_id,' . $order->id,
 
             'department_id' => 'nullable|exists:departments,id',
 
@@ -110,7 +119,7 @@ class OfficeOrderController extends Controller
     // Delete order
     public function destroy($id)
     {
-        $order = Office_order::find($id);
+        $order = is_numeric($id) ? Office_order::find($id) : Office_order::where('order_id', $id)->first();
 
         if (!$order) {
             return response()->json([

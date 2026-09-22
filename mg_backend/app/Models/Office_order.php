@@ -9,6 +9,8 @@ class Office_order extends Model
 {
     use HasFactory;
 
+    protected $table = 'orders';
+
     protected $fillable = [
         'order_id',
         'department_id',

@@ -1,10 +1,11 @@
-﻿import { useState, useMemo, type MouseEvent } from 'react';
+﻿import { useState, useMemo, useEffect, type MouseEvent } from 'react';
 import { Plus, Download, MoreHorizontal, Edit3, Eye, Trash2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import logoImg from '@/assets/logo.jpeg';
-import { usePersistentState } from '@/utils/persistentState';
+import invoicesService, { type Invoice as ServiceInvoice } from '@/services/invoices';
+import clientsService, { type Client as ServiceClient } from '@/services/clients';
 
 const companyProfile = {
   name: 'MAKEZY GROUP',
@@ -51,6 +52,28 @@ interface Client {
   address?: string;
   country?: string;
 }
+
+const toPageClient = (client: ServiceClient): Client => ({
+  id: client.id,
+  name: client.name,
+  company: client.company,
+  email: client.email,
+  phone: client.phone,
+  otherPhone: '',
+  tinNumber: client.tin,
+  address: client.address,
+  country: client.country,
+});
+
+const getInvoiceSaveError = (error: unknown) => {
+  if (typeof error === 'object' && error !== null && 'details' in error) {
+    const details = (error as { details?: { errors?: Record<string, string[]> } }).details;
+    const messages = details?.errors ? Object.values(details.errors).flat() : [];
+    if (messages.length) return messages.join(' ');
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return 'Unable to save the invoice to the server';
+};
 
 const initialInvoices: Invoice[] = [];
 /*
@@ -107,9 +130,11 @@ const getItemsTotal = (items: Invoice['items'], fallbackAmount = 0) =>
     ? items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.amount) || 0), 0)
     : fallbackAmount;
 
+  const toPageInvoice = (invoice: ServiceInvoice): Invoice => invoice;
+
 export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: string }) {
-  const [invoices, setInvoices] = usePersistentState<Invoice[]>('invoices', initialInvoices);
-  const [clients] = usePersistentState<Client[]>('clients', []);
+  const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
+  const [clients, setClients] = useState<Client[]>([]);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null);
   const [viewInvoice, setViewInvoice] = useState<Invoice | null>(null);
@@ -117,6 +142,18 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
   const [createOpen, setCreateOpen] = useState(false);
   const [pendingDeleteInvoiceId, setPendingDeleteInvoiceId] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  useEffect(() => {
+    void invoicesService.getAll()
+      .then((loadedInvoices) => setInvoices(loadedInvoices.map(toPageInvoice)))
+      .catch(() => showToast('Unable to load invoices from the server', 'error'));
+  }, [showToast]);
+
+  useEffect(() => {
+    void clientsService.getAll()
+      .then((loadedClients) => setClients(loadedClients.map(toPageClient)))
+      .catch(() => showToast('Unable to load clients from the server', 'error'));
+  }, [showToast]);
 
   const filteredInvoices = useMemo(() => {
     if (!searchQuery.trim()) return invoices;
@@ -288,8 +325,28 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
     const paidAmount = editInvoice.status === 'Paid'
       ? total
       : Math.min(Math.max(0, Number(editInvoice.paidAmount) || 0), total);
-    setInvoices((current) => current.map((i) => (i.id === editInvoice.id ? { ...editInvoice, paidAmount, amount: formatCurrency(total) } : i)));
-    setEditInvoice(null);
+    void invoicesService.update(editInvoice.id, {
+      id: editInvoice.id,
+      client: editInvoice.client,
+      company: editInvoice.company,
+      tin: editInvoice.tin,
+      email: editInvoice.email,
+      phone: editInvoice.phone,
+      address: editInvoice.address,
+      country: editInvoice.country,
+      items: editInvoice.items ?? [],
+      date: editInvoice.issuedRaw ?? '',
+      due: editInvoice.dueRaw ?? '',
+      status: editInvoice.status,
+      paidAmount,
+      notes: editInvoice.notes,
+    })
+      .then((savedInvoice) => {
+        setInvoices((current) => current.map((invoice) => invoice.id === savedInvoice.id ? toPageInvoice(savedInvoice) : invoice));
+        setEditInvoice(null);
+        showToast(`Invoice "${savedInvoice.id}" updated successfully`, 'success');
+      })
+      .catch((error) => showToast(getInvoiceSaveError(error), 'error'));
   };
 
   const generateInvoiceNumber = () => {
@@ -297,8 +354,12 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
     const y = now.getFullYear();
     const m = String(now.getMonth() + 1).padStart(2, '0');
     const prefix = `INV-${y}-${m}-`;
-    const monthCount = invoices.filter((i) => i.id.startsWith(prefix)).length + 1;
-    const num = String(monthCount).padStart(3, '0');
+    const highestSequence = invoices
+      .filter((invoice) => invoice.id.startsWith(prefix))
+      .map((invoice) => Number(invoice.id.slice(prefix.length)))
+      .filter((sequence) => Number.isFinite(sequence))
+      .reduce((highest, sequence) => Math.max(highest, sequence), 0);
+    const num = String(highestSequence + 1).padStart(3, '0');
     return `${prefix}${num}`;
   };
 
@@ -363,21 +424,43 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
       status: 'Pending',
       notes: createForm.notes.trim(),
     };
-    setInvoices((cur) => [newInv, ...cur]);
-    notifySystem('Invoice created', `${newInv.id} was created for ${newInv.client}.`);
-    showToast(`Invoice "${newInv.id}" created successfully`, 'success');
-    closeCreate();
+    void invoicesService.create({
+      id: newInv.id,
+      clientId: createForm.clientId,
+      client: newInv.client,
+      company: newInv.company,
+      tin: newInv.tin,
+      email: newInv.email,
+      phone: newInv.phone,
+      address: newInv.address,
+      country: newInv.country,
+      items: newInv.items ?? [],
+      date: createForm.issued,
+      due: createForm.due,
+      notes: newInv.notes,
+    })
+      .then((savedInvoice) => {
+        setInvoices((current) => [toPageInvoice(savedInvoice), ...current]);
+        notifySystem('Invoice created', `${savedInvoice.id} was created for ${savedInvoice.client}.`);
+        showToast(`Invoice "${savedInvoice.id}" created successfully`, 'success');
+        closeCreate();
+      })
+      .catch((error) => showToast(getInvoiceSaveError(error), 'error'));
   };
 
   const handleDelete = (id: string) => {
     const deletedInvoice = invoices.find((x) => x.id === id);
-    setInvoices((cur) => cur.filter((x) => x.id !== id));
-    if (deletedInvoice) {
-      notifySystem('Invoice deleted', `${deletedInvoice.id} was deleted from the invoices list.`);
-      showToast(`Invoice "${deletedInvoice.id}" deleted`, 'info');
-    }
-    setOpenMenu(null);
-    setPendingDeleteInvoiceId(null);
+    void invoicesService.delete(id)
+      .then(() => {
+        setInvoices((cur) => cur.filter((x) => x.id !== id));
+        if (deletedInvoice) {
+          notifySystem('Invoice deleted', `${deletedInvoice.id} was deleted from the invoices list.`);
+          showToast(`Invoice "${deletedInvoice.id}" deleted`, 'info');
+        }
+        setOpenMenu(null);
+        setPendingDeleteInvoiceId(null);
+      })
+      .catch(() => showToast('Unable to delete the invoice from the server', 'error'));
   };
 
   const createTotal = getItemsTotal(createForm.items);

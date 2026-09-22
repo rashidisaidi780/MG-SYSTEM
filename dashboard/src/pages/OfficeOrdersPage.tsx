@@ -1,9 +1,9 @@
 import { Plus, Calendar, User, Edit3, Trash2, MoreHorizontal } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
-import { usePersistentState } from '@/utils/persistentState';
+import officeOrdersService from '@/services/officeOrders';
 import { useDepartments } from '@/utils/departments';
 
 interface OfficeOrder {
@@ -30,7 +30,7 @@ const statusStyles: Record<OfficeOrder['status'], string> = {
 const emptyOrder: OfficeOrder = { id: '', department: '', subject: '', description: '', requester: '', date: '', status: 'Pending', notes: '' };
 
 export default function OfficeOrdersPage({ searchQuery = '' }: { searchQuery?: string }) {
-  const [orders, setOrders] = usePersistentState<OfficeOrder[]>('office-orders', initialOrders);
+  const [orders, setOrders] = useState<OfficeOrder[]>(initialOrders);
   const [departments] = useDepartments();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
@@ -38,6 +38,12 @@ export default function OfficeOrdersPage({ searchQuery = '' }: { searchQuery?: s
   const [viewOrder, setViewOrder] = useState<OfficeOrder | null>(null);
   const [pendingDeleteOrderId, setPendingDeleteOrderId] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  useEffect(() => {
+    void officeOrdersService.getAll()
+      .then((loaded) => setOrders(loaded.map((order) => ({ ...order, subject: order.item, description: order.notes, requester: order.requestedBy, date: order.requestDate, status: order.status === 'Received' ? 'Completed' : order.status === 'Rejected' ? 'Cancelled' : order.status === 'Approved' ? 'Confirmed' : order.status })) as OfficeOrder[]))
+      .catch(() => showToast('Unable to load office orders from the server', 'error'));
+  }, [showToast]);
 
   const filteredOrders = useMemo(() => {
     if (!searchQuery.trim()) return orders;
@@ -63,26 +69,27 @@ export default function OfficeOrdersPage({ searchQuery = '' }: { searchQuery?: s
       showToast('Please fill in all required office order fields', 'warning');
       return;
     }
-    if (formMode === 'add') {
-      setOrders((current) => [formOrder, ...current]);
-      notifySystem('Office order created', `${formOrder.id} was created for ${formOrder.department}.`);
-      showToast(`Office order "${formOrder.id}" created successfully`, 'success');
-    } else {
-      setOrders((current) => current.map((order) => order.id === formOrder.id ? formOrder : order));
-      notifySystem('Office order updated', `${formOrder.id} details were updated.`);
-      showToast(`Office order "${formOrder.id}" updated successfully`, 'success');
-    }
-    closeForm();
+    const request = { id: formOrder.id, item: formOrder.subject, quantity: 1, unitPrice: 0, department: formOrder.department, requestedBy: formOrder.requester, requestDate: formOrder.date, status: formOrder.status === 'In Progress' ? 'Ordered' as const : formOrder.status === 'Cancelled' ? 'Rejected' as const : formOrder.status === 'Completed' ? 'Received' as const : formOrder.status === 'Confirmed' ? 'Approved' as const : formOrder.status, notes: `${formOrder.description}\n${formOrder.notes ?? ''}`.trim() };
+    const saveRequest = formMode === 'add' ? officeOrdersService.create(request) : officeOrdersService.update(formOrder.id, request);
+    void saveRequest.then((saved) => {
+      const pageOrder = { ...formOrder, id: saved.id };
+      setOrders((current) => formMode === 'add' ? [pageOrder, ...current] : current.map((order) => order.id === pageOrder.id ? pageOrder : order));
+      notifySystem(formMode === 'add' ? 'Office order created' : 'Office order updated', `${pageOrder.id} details were saved.`);
+      showToast(`Office order "${pageOrder.id}" ${formMode === 'add' ? 'created' : 'updated'} successfully`, 'success');
+      closeForm();
+    }).catch(() => showToast('Unable to save office order to the server', 'error'));
   };
 
   const handleDelete = (id: string) => {
     const order = orders.find((item) => item.id === id);
-    setOrders((current) => current.filter((item) => item.id !== id));
-    if (order) {
-      notifySystem('Office order deleted', `${order.id} was removed from office orders.`);
-      showToast(`Office order "${order.id}" deleted`, 'info');
-    }
-    setPendingDeleteOrderId(null);
+    void officeOrdersService.delete(id).then(() => {
+      setOrders((current) => current.filter((item) => item.id !== id));
+      if (order) {
+        notifySystem('Office order deleted', `${order.id} was removed from office orders.`);
+        showToast(`Office order "${order.id}" deleted`, 'info');
+      }
+      setPendingDeleteOrderId(null);
+    }).catch(() => showToast('Unable to delete office order from the server', 'error'));
   };
 
   const formatDate = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });

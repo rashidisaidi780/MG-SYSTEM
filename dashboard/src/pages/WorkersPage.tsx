@@ -1,13 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, MoreHorizontal, Mail, Phone, Edit3, Trash2, Building2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
-import { usePersistentState } from '@/utils/persistentState';
-import { useDepartments } from '@/utils/departments';
+import workersService, { type Worker as ServiceWorker } from '@/services/workers';
+import { useDepartmentOptions } from '@/utils/departments';
 
 interface Worker {
   id: string;
+  workerId?: string;
   name: string;
   department: string;
   tinNumber: string;
@@ -59,9 +60,18 @@ const calculateEndDate = (startDate: string, durationValue: number, durationUnit
   return date.toISOString().slice(0, 10);
 };
 
+const getWorkerSaveError = (error: unknown) => {
+  if (typeof error === 'object' && error !== null && 'details' in error) {
+    const details = (error as { details?: { errors?: Record<string, string[]> } }).details;
+    const messages = details?.errors ? Object.values(details.errors).flat() : [];
+    if (messages.length) return messages.join(' ');
+  }
+  return error instanceof Error && error.message ? error.message : 'Unable to save worker to the server';
+};
+
 export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string }) {
-  const [workers, setWorkers] = usePersistentState<Worker[]>('workers', initialWorkers);
-  const [departments] = useDepartments();
+  const [workers, setWorkers] = useState<Worker[]>(initialWorkers);
+  const [departmentOptions] = useDepartmentOptions();
   const [formOpen, setFormOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
@@ -69,6 +79,12 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
   const [pendingDeleteWorkerId, setPendingDeleteWorkerId] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  useEffect(() => {
+    void workersService.getAll()
+      .then((loaded) => setWorkers(loaded.map((worker) => ({ ...worker, contractStartDate: worker.hireDate, tinNumber: worker.tinNumber ?? '', nidaNumber: worker.nidaNumber ?? '', otherPhone: worker.otherPhone ?? '', salary: worker.salary ?? '', durationValue: worker.durationValue ?? 1, durationUnit: 'year' as const, contractEndDate: worker.contractEndDate ?? '', status: worker.status === 'Inactive' ? 'Contract' : worker.status }))))
+      .catch(() => showToast('Unable to load workers from the server', 'error'));
+  }, [showToast]);
 
   const filteredWorkers = useMemo(() => {
     if (!searchQuery.trim()) return workers;
@@ -125,35 +141,30 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
       return;
     }
 
-    if (formMode === 'add') {
-      const newWorker = { ...formWorker, id: `worker-${Date.now()}` };
-      setWorkers((current) => [newWorker, ...current]);
-      notifySystem('Worker added', `${newWorker.name} was added to the team.`);
-      showToast(`Worker "${newWorker.name}" added successfully`, 'success');
-    } else {
-      setWorkers((current) =>
-        current.map((worker) => (worker.id === formWorker.id ? { ...formWorker } : worker)),
-      );
-      if (selectedWorker?.id === formWorker.id) {
-        setSelectedWorker(formWorker);
-      }
-      notifySystem('Worker updated', `${formWorker.name}'s record was updated.`);
-      showToast(`Worker "${formWorker.name}" updated successfully`, 'success');
-    }
-    closeForm();
+    const departmentId = departmentOptions.find((department) => department.name === formWorker.department)?.id ?? '';
+    const request = { name: formWorker.name, email: formWorker.email, phone: formWorker.phone, position: '', department: departmentId, hireDate: formWorker.contractStartDate, tinNumber: formWorker.tinNumber, nidaNumber: formWorker.nidaNumber, otherPhone: formWorker.otherPhone, salary: formWorker.salary, contractEndDate: formWorker.contractEndDate };
+    const saveRequest = formMode === 'add' ? workersService.create(request) : workersService.update(formWorker.id, { ...request, workerId: formWorker.workerId, status: formWorker.status });
+    void saveRequest.then((saved) => {
+      const savedWorker: Worker = { ...formWorker, ...saved, id: saved.id, department: formWorker.department, status: saved.status === 'On Leave' ? 'On Leave' : formWorker.status };
+      setWorkers((current) => formMode === 'add' ? [savedWorker, ...current] : current.map((worker) => worker.id === savedWorker.id ? savedWorker : worker));
+      if (selectedWorker?.id === savedWorker.id) setSelectedWorker(savedWorker);
+      notifySystem(formMode === 'add' ? 'Worker added' : 'Worker updated', `${savedWorker.name}'s record was saved.`);
+      showToast(`Worker "${savedWorker.name}" ${formMode === 'add' ? 'added' : 'updated'} successfully`, 'success');
+      closeForm();
+    }).catch((error) => showToast(getWorkerSaveError(error), 'error'));
   };
 
   const deleteWorker = (workerId: string) => {
     const workerToDelete = workers.find((worker) => worker.id === workerId);
-    setWorkers((current) => current.filter((worker) => worker.id !== workerId));
-    if (selectedWorker?.id === workerId) {
-      closeDetail();
-    }
-    if (workerToDelete) {
-      notifySystem('Worker removed', `${workerToDelete.name} was removed from the team.`);
-      showToast(`Worker "${workerToDelete.name}" deleted`, 'info');
-    }
-    setPendingDeleteWorkerId(null);
+    void workersService.delete(workerId).then(() => {
+      setWorkers((current) => current.filter((worker) => worker.id !== workerId));
+      if (selectedWorker?.id === workerId) closeDetail();
+      if (workerToDelete) {
+        notifySystem('Worker removed', `${workerToDelete.name} was removed from the team.`);
+        showToast(`Worker "${workerToDelete.name}" deleted`, 'info');
+      }
+      setPendingDeleteWorkerId(null);
+    }).catch(() => showToast('Unable to delete worker from the server', 'error'));
   };
 
   return (
@@ -393,8 +404,8 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
                   className="w-full rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
                 >
                   <option value="" disabled>Select department</option>
-                  {departments.map((department) => (
-                    <option key={department} value={department}>{department}</option>
+                  {departmentOptions.map((department) => (
+                    <option key={department.id} value={department.name}>{department.name}</option>
                   ))}
                 </select>
               </label>

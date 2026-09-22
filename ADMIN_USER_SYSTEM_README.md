@@ -20,9 +20,9 @@ Frontend and Backend are now fully integrated with a complete **Admin-User** sys
 
 **Seeded Admin (Ready to Use):**
 ```
-Username: rashidadmin
+Username: rashid
 Email: admin@makezy.co.tz
-Password: rashidmakezy2026@
+Password: rashid123
 ```
 
 ---
@@ -57,8 +57,8 @@ http://localhost:5173
 ### Admin Login
 1. Click **"Admin Sign In"** on login page
 2. Enter:
-   - Username: `rashidadmin`
-   - Password: `rashidmakezy2026@`
+   - Username: `rashid`
+   - Password: `rashid123`
 3. Click Continue
 4. You'll see **Admin Dashboard** with user management
 
@@ -192,8 +192,8 @@ npm run dev
 ### Step 3: Admin Login
 - URL: http://localhost:5173
 - Click **"Admin Sign In"**
-- Username: `rashidadmin`
-- Password: `rashidmakezy2026@`
+- Username: `rashid`
+- Password: `rashid123`
 - Click Continue
 
 ### Step 4: Create User
@@ -386,8 +386,8 @@ http://localhost:5173
 ```
 
 Admin credentials:
-- Username: `rashidadmin`
-- Password: `rashidmakezy2026@`
+- Username: `rashid`
+- Password: `rashid123`
 
 ---
 

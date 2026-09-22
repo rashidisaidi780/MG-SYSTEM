@@ -34,11 +34,10 @@ class InvoiceController extends Controller
             'client_address' => 'nullable|string',
             'country' => 'nullable|string|max:100',
 
-            'item_description' => 'required|string',
-            'item_quantity' => 'required|integer|min:1',
-            'item_unit_price' => 'required|numeric|min:0',
-            'item_total_price' => 'required|numeric|min:0',
-            'invoice_total_amount' => 'required|numeric|min:0',
+            'invoice_items' => 'required|array|min:1',
+            'invoice_items.*.desc' => 'required|string',
+            'invoice_items.*.quantity' => 'required|integer|min:1',
+            'invoice_items.*.amount' => 'required|numeric|min:0',
 
             'invoice_status' => 'nullable|string|max:50',
 
@@ -48,7 +47,10 @@ class InvoiceController extends Controller
             'invoice_notes' => 'nullable|string',
         ]);
 
+        $validated = $this->withInvoiceTotals($validated);
+
         $invoice = Invoice::create($validated);
+        $invoice->load('client');
 
         return response()->json([
             'success' => true,
@@ -60,7 +62,7 @@ class InvoiceController extends Controller
     // Get one invoice
     public function show($id)
     {
-        $invoice = Invoice::with('client')->find($id);
+        $invoice = Invoice::with('client')->findInvoice($id);
 
         if (!$invoice) {
             return response()->json([
@@ -78,7 +80,7 @@ class InvoiceController extends Controller
     // Update invoice
     public function update(Request $request, $id)
     {
-        $invoice = Invoice::find($id);
+        $invoice = Invoice::findInvoice($id);
 
         if (!$invoice) {
             return response()->json([
@@ -88,7 +90,7 @@ class InvoiceController extends Controller
         }
 
         $validated = $request->validate([
-            'invoice_id' => 'required|string|max:255|unique:invoices,invoice_id,' . $id,
+            'invoice_id' => 'required|string|max:255|unique:invoices,invoice_id,' . $invoice->id,
             'client_id' => 'nullable|exists:clients,id',
 
             'company_name' => 'required|string|max:255',
@@ -100,11 +102,10 @@ class InvoiceController extends Controller
             'paid_amount' => 'nullable|numeric|min:0',
             'remaining_amount' => 'nullable|numeric|min:0',
 
-            'item_description' => 'required|string',
-            'item_quantity' => 'required|integer|min:1',
-            'item_unit_price' => 'required|numeric|min:0',
-            'item_total_price' => 'required|numeric|min:0',
-            'invoice_total_amount' => 'required|numeric|min:0',
+            'invoice_items' => 'required|array|min:1',
+            'invoice_items.*.desc' => 'required|string',
+            'invoice_items.*.quantity' => 'required|integer|min:1',
+            'invoice_items.*.amount' => 'required|numeric|min:0',
 
             'invoice_status' => 'nullable|string|max:50',
 
@@ -114,7 +115,10 @@ class InvoiceController extends Controller
             'invoice_notes' => 'nullable|string',
         ]);
 
+        $validated = $this->withInvoiceTotals($validated);
+
         $invoice->update($validated);
+        $invoice->load('client');
 
         return response()->json([
             'success' => true,
@@ -123,10 +127,28 @@ class InvoiceController extends Controller
         ]);
     }
 
+    private function withInvoiceTotals(array $validated): array
+    {
+        $items = $validated['invoice_items'];
+        $total = collect($items)->sum(fn (array $item) => $item['quantity'] * $item['amount']);
+        $firstItem = $items[0];
+        $paidAmount = min((float) ($validated['paid_amount'] ?? 0), $total);
+
+        return array_merge($validated, [
+            'item_description' => $firstItem['desc'],
+            'item_quantity' => $firstItem['quantity'],
+            'item_unit_price' => $firstItem['amount'],
+            'item_total_price' => $firstItem['quantity'] * $firstItem['amount'],
+            'invoice_total_amount' => $total,
+            'paid_amount' => $paidAmount,
+            'remaining_amount' => max(0, $total - $paidAmount),
+        ]);
+    }
+
     // Delete invoice
     public function destroy($id)
     {
-        $invoice = Invoice::find($id);
+        $invoice = Invoice::findInvoice($id);
 
         if (!$invoice) {
             return response()->json([

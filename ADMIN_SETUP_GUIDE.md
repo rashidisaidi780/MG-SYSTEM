@@ -13,9 +13,9 @@ The system now has a two-tier login system:
 The admin is created through the seeder with these credentials:
 
 ```
-Username: rashidadmin
+Username: rashid
 Email: admin@makezy.co.tz
-Password: rashidmakezy2026@
+Password: rashid123
 ```
 
 ### Database Setup
@@ -73,8 +73,8 @@ Password: rashidmakezy2026@
 
 1. On the login page, click **"Admin Sign In"** button
 2. Enter admin credentials:
-   - Username: `rashidadmin`
-   - Password: `rashidmakezy2026@`
+   - Username: `rashid`
+   - Password: `rashid123`
 3. Click **Continue**
 4. You'll see the **Admin Dashboard** with User Management
 
@@ -283,7 +283,7 @@ Content-Type: application/json
 
 ### "Admin login fails"
 - Verify you're on Admin Sign In page
-- Check credentials: `rashidadmin` / `rashidmakezy2026@`
+- Check credentials: `rashid` / `rashid123`
 - Ensure migrations ran with `php artisan migrate`
 - Ensure seeders ran with `php artisan db:seed`
 

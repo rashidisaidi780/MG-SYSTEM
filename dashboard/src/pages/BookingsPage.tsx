@@ -1,9 +1,9 @@
 import { Plus, MoreHorizontal, Calendar, Clock, User, Edit3, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
-import { usePersistentState } from '@/utils/persistentState';
+import bookingsService from '@/services/bookings';
 
 interface Booking {
   id: string;
@@ -39,13 +39,19 @@ const emptyBooking: Booking = {
 const existingClients: string[] = [];
 
 export default function BookingsPage({ searchQuery = '' }: { searchQuery?: string }) {
-  const [bookings, setBookings] = usePersistentState<Booking[]>('bookings', initialBookings);
+  const [bookings, setBookings] = useState<Booking[]>(initialBookings);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [formBooking, setFormBooking] = useState<Booking>(emptyBooking);
   const [viewBooking, setViewBooking] = useState<Booking | null>(null);
   const [pendingDeleteBookingId, setPendingDeleteBookingId] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  useEffect(() => {
+    void bookingsService.getAll()
+      .then((loaded) => setBookings(loaded.map((booking) => ({ ...booking, assignee: booking.assignee ?? '', status: booking.status === 'Canceled' ? 'Cancelled' : booking.status }))))
+      .catch(() => showToast('Unable to load bookings from the server', 'error'));
+  }, [showToast]);
 
   const filteredBookings = useMemo(() => {
     if (!searchQuery.trim()) return bookings;
@@ -76,26 +82,27 @@ export default function BookingsPage({ searchQuery = '' }: { searchQuery?: strin
       return;
     }
 
-    if (formMode === 'add') {
-      setBookings((current) => [formBooking, ...current]);
-      notifySystem('Booking created', `${formBooking.id} was created for ${formBooking.client}.`);
-      showToast(`Booking "${formBooking.id}" created successfully`, 'success');
-    } else {
-      setBookings((current) => current.map((booking) => booking.id === formBooking.id ? formBooking : booking));
-      notifySystem('Booking updated', `${formBooking.id} details were updated.`);
-      showToast(`Booking "${formBooking.id}" updated successfully`, 'success');
-    }
-    closeForm();
+    const request = { id: formBooking.id, client: formBooking.client, service: formBooking.service, assignee: formBooking.assignee, date: formBooking.date, time: formBooking.time, status: formBooking.status === 'Cancelled' ? 'Canceled' as const : formBooking.status, notes: formBooking.notes };
+    const saveRequest = formMode === 'add' ? bookingsService.create(request) : bookingsService.update(formBooking.id, request);
+    void saveRequest.then((saved) => {
+      const pageBooking = { ...formBooking, id: saved.id, status: saved.status === 'Canceled' ? 'Cancelled' : saved.status } as Booking;
+      setBookings((current) => formMode === 'add' ? [pageBooking, ...current] : current.map((booking) => booking.id === pageBooking.id ? pageBooking : booking));
+      notifySystem(formMode === 'add' ? 'Booking created' : 'Booking updated', `${pageBooking.id} details were saved.`);
+      showToast(`Booking "${pageBooking.id}" ${formMode === 'add' ? 'created' : 'updated'} successfully`, 'success');
+      closeForm();
+    }).catch(() => showToast('Unable to save booking to the server', 'error'));
   };
 
   const handleDelete = (id: string) => {
     const booking = bookings.find((item) => item.id === id);
-    setBookings((current) => current.filter((item) => item.id !== id));
-    if (booking) {
-      notifySystem('Booking deleted', `${booking.id} was removed from booking orders.`);
-      showToast(`Booking "${booking.id}" deleted`, 'info');
-    }
-    setPendingDeleteBookingId(null);
+    void bookingsService.delete(id).then(() => {
+      setBookings((current) => current.filter((item) => item.id !== id));
+      if (booking) {
+        notifySystem('Booking deleted', `${booking.id} was removed from booking orders.`);
+        showToast(`Booking "${booking.id}" deleted`, 'info');
+      }
+      setPendingDeleteBookingId(null);
+    }).catch(() => showToast('Unable to delete booking from the server', 'error'));
   };
 
   const formatDate = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });

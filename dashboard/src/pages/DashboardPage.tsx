@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FileText, FolderKanban, Users, ClipboardList, Activity, AlertTriangle } from 'lucide-react';
 import { SYSTEM_ACTIVITIES_STORAGE_KEY, type SystemActivity } from '@/utils/systemNotifications';
+import invoicesService from '@/services/invoices';
 
 const readCount = (key: string) => {
   try {
@@ -12,6 +13,7 @@ const readCount = (key: string) => {
 };
 
 export default function DashboardPage() {
+  const [invoiceCount, setInvoiceCount] = useState(0);
   const [activities, setActivities] = useState<SystemActivity[]>(() => {
     try {
       const stored = localStorage.getItem(SYSTEM_ACTIVITIES_STORAGE_KEY);
@@ -32,7 +34,12 @@ export default function DashboardPage() {
     return () => window.removeEventListener('system-activity', handleActivity);
   }, []);
 
-  const invoices = readCount('invoices');
+  useEffect(() => {
+    void invoicesService.getAll()
+      .then((invoices) => setInvoiceCount(invoices.length))
+      .catch(() => setInvoiceCount(0));
+  }, []);
+
   const projects = readCount('projects');
   const clients = readCount('clients');
   const orders = readCount('office-orders') + readCount('bookings');
@@ -50,7 +57,7 @@ export default function DashboardPage() {
     return item.date && !Number.isNaN(date.getTime()) && date <= thirtyDaysFromNow;
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const stats = [
-    { label: 'Invoices', value: invoices, icon: FileText },
+    { label: 'Invoices', value: invoiceCount, icon: FileText },
     { label: 'Projects', value: projects, icon: FolderKanban },
     { label: 'Clients', value: clients, icon: Users },
     { label: 'Orders', value: orders, icon: ClipboardList },

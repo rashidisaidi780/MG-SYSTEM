@@ -9,17 +9,31 @@ export interface Project {
   name: string;
   description: string;
   client: string;
-  status: 'Active' | 'Completed' | 'On Hold' | 'Canceled';
+  status: 'In Progress' | 'Planning' | 'Review' | 'Completed' | 'On Hold';
   startDate: string;
   endDate: string;
   budget: number;
+  progress: number;
   spent: number;
   team: string[];
   createdAt?: string;
   updatedAt?: string;
 }
 
+interface ProjectApiRecord {
+  id: number | string;
+  project_name: string;
+  project_budget: number | string;
+  project_status: string;
+  project_progress: number;
+  project_start_date: string;
+  project_end_date: string | null;
+  project_details: string | null;
+  client_id: number | string;
+}
+
 export interface CreateProjectRequest {
+  id?: string;
   name: string;
   description: string;
   client: string;
@@ -31,6 +45,7 @@ export interface CreateProjectRequest {
 }
 
 export interface UpdateProjectRequest {
+  id?: string;
   name?: string;
   description?: string;
   client?: string;
@@ -53,19 +68,24 @@ class ProjectsService {
     const queryString = queryParams.toString();
     const endpoint = queryString ? `/projects?${queryString}` : '/projects';
     
-    return apiClient.get<Project[]>(endpoint);
+    const response = await apiClient.get<{ data: { data: ProjectApiRecord[] } | ProjectApiRecord[] }>(endpoint);
+    const records = Array.isArray(response.data) ? response.data : response.data.data;
+    return records.map(toProject);
   }
 
   async getById(id: string): Promise<Project> {
-    return apiClient.get<Project>(`/projects/${id}`);
+    const response = await apiClient.get<{ data: ProjectApiRecord }>(`/projects/${id}`);
+    return toProject(response.data);
   }
 
   async create(data: CreateProjectRequest): Promise<Project> {
-    return apiClient.post<Project>('/projects', data);
+    const response = await apiClient.post<{ data: ProjectApiRecord }>('/projects', toProjectPayload(data, true));
+    return toProject(response.data);
   }
 
   async update(id: string, data: UpdateProjectRequest): Promise<Project> {
-    return apiClient.put<Project>(`/projects/${id}`, data);
+    const response = await apiClient.put<{ data: ProjectApiRecord }>(`/projects/${id}`, toProjectPayload(data, false));
+    return toProject(response.data);
   }
 
   async delete(id: string): Promise<void> {
@@ -79,3 +99,21 @@ class ProjectsService {
 
 export const projectsService = new ProjectsService();
 export default projectsService;
+
+const toProject = (project: ProjectApiRecord): Project => ({
+  id: String(project.id), name: project.project_name, description: project.project_details ?? '', client: String(project.client_id),
+  status: project.project_status.toLowerCase() === 'completed' ? 'Completed' : project.project_status.toLowerCase() === 'on hold' ? 'On Hold' : project.project_status.toLowerCase() === 'in progress' ? 'In Progress' : 'Planning',
+  startDate: project.project_start_date, endDate: project.project_end_date ?? '', budget: Number(project.project_budget), progress: project.project_progress ?? 0, spent: 0, team: [],
+});
+
+const toProjectPayload = (project: CreateProjectRequest | UpdateProjectRequest, includeProjectId: boolean) => ({
+  ...(includeProjectId ? { project_id: Number(project.id) || Date.now() } : {}),
+  ...(project.name !== undefined ? { project_name: project.name } : {}),
+  ...(project.description !== undefined ? { project_details: project.description } : {}),
+  ...(project.client !== undefined ? { client_id: Number(project.client) } : {}),
+  ...(project.status !== undefined ? { project_status: project.status.toLowerCase() } : {}),
+  ...(project.startDate !== undefined ? { project_start_date: project.startDate } : {}),
+  ...(project.endDate !== undefined ? { project_end_date: project.endDate || null } : {}),
+  ...(project.budget !== undefined ? { project_budget: project.budget } : {}),
+  ...('progress' in project && project.progress !== undefined ? { project_progress: project.progress } : {}),
+});

@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Booking;
+use App\Models\Service;
+use App\Models\Client;
+use App\Models\Worker;
 
 class BookingController extends Controller
 {
@@ -27,6 +30,16 @@ class BookingController extends Controller
     // Create booking
     public function store(Request $request)
     {
+        if ($request->filled('service_name')) {
+            $request->merge(['service_id' => Service::firstOrCreate(['service_name' => $request->input('service_name')])->id]);
+        }
+        if ($request->filled('client_name')) {
+            $request->merge(['client_id' => Client::where('client_name', $request->input('client_name'))->value('id')]);
+        }
+        if ($request->filled('assignee_name')) {
+            $request->merge(['assignee' => Worker::where('worker_name', $request->input('assignee_name'))->value('id')]);
+        }
+
         $validated = $request->validate([
             'booking_id' => 'required|string|max:255|unique:bookings,booking_id',
 
@@ -61,11 +74,11 @@ class BookingController extends Controller
     // Get one booking
     public function show($id)
     {
-        $booking = Booking::with([
+        $booking = (is_numeric($id) ? Booking::whereKey($id) : Booking::where('booking_id', $id))->with([
             'client',
             'service',
             'worker'
-        ])->find($id);
+        ])->first();
 
         if (!$booking) {
             return response()->json([
@@ -83,7 +96,7 @@ class BookingController extends Controller
     // Update booking
     public function update(Request $request, $id)
     {
-        $booking = Booking::find($id);
+        $booking = is_numeric($id) ? Booking::find($id) : Booking::where('booking_id', $id)->first();
 
         if (!$booking) {
             return response()->json([
@@ -92,8 +105,18 @@ class BookingController extends Controller
             ], 404);
         }
 
+        if ($request->filled('service_name')) {
+            $request->merge(['service_id' => Service::firstOrCreate(['service_name' => $request->input('service_name')])->id]);
+        }
+        if ($request->filled('client_name')) {
+            $request->merge(['client_id' => Client::where('client_name', $request->input('client_name'))->value('id')]);
+        }
+        if ($request->filled('assignee_name')) {
+            $request->merge(['assignee' => Worker::where('worker_name', $request->input('assignee_name'))->value('id')]);
+        }
+
         $validated = $request->validate([
-            'booking_id' => 'required|string|max:255|unique:bookings,booking_id,' . $id,
+            'booking_id' => 'required|string|max:255|unique:bookings,booking_id,' . $booking->id,
 
             'client_id' => 'required|exists:clients,id',
 
@@ -126,7 +149,7 @@ class BookingController extends Controller
     // Delete booking
     public function destroy($id)
     {
-        $booking = Booking::find($id);
+        $booking = is_numeric($id) ? Booking::find($id) : Booking::where('booking_id', $id)->first();
 
         if (!$booking) {
             return response()->json([

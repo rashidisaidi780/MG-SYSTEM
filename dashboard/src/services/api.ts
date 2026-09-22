@@ -68,6 +68,7 @@ class ApiClient {
   private getHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      Accept: 'application/json',
     };
 
     if (this.token) {
@@ -97,6 +98,7 @@ class ApiClient {
       // If 401, clear token and redirect to login handled by caller
       if (response.status === 401) {
         this.clearToken();
+        window.dispatchEvent(new Event('auth-expired'));
       }
 
       throw error;

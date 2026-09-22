@@ -12,6 +12,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\UpdateController;
+use App\Http\Controllers\BookingController;
 
 // Public authentication routes (no token required)
 Route::post('/auth/login', [AuthController::class, 'login']);
@@ -35,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('permission:Users')->apiResource('users', UserController::class);
     Route::middleware('permission:Departments')->apiResource('departments', DepartmentController::class);
     Route::middleware('permission:Workers')->apiResource('workers', WorkerController::class);
+    Route::middleware('permission:Booking Orders')->apiResource('bookings', BookingController::class);
     Route::middleware('permission:Invoices')->apiResource('invoices', InvoiceController::class);
     Route::middleware('permission:Event & Updates')->apiResource('updates', UpdateController::class);
     Route::middleware('permission:Office Orders')->apiResource('officeorders', OfficeOrderController::class);

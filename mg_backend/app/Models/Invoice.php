@@ -21,6 +21,7 @@ class Invoice extends Model
         'item_quantity',
         'item_unit_price',
         'item_total_price',
+        'invoice_items',
         'invoice_total_amount',
         'paid_amount',
         'remaining_amount',
@@ -29,6 +30,19 @@ class Invoice extends Model
         'invoice_due_date',
         'invoice_notes',
     ];
+
+    protected $casts = [
+        'invoice_items' => 'array',
+        'invoice_date' => 'date:Y-m-d',
+        'invoice_due_date' => 'date:Y-m-d',
+    ];
+
+    public static function findInvoice(string|int $identifier): ?self
+    {
+        return is_numeric($identifier)
+            ? self::with('client')->find($identifier)
+            : self::with('client')->where('invoice_id', $identifier)->first();
+    }
 
     public function client()
     {
