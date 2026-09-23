@@ -3,6 +3,7 @@ import { Plus, Mail, Key, Download, Edit3, Trash2, ShieldCheck, Building2 } from
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
+import logoImg from '@/assets/logo.jpeg';
 import { adminService } from '@/services/admin';
 import { useDepartmentOptions } from '@/utils/departments';
 
@@ -227,7 +228,9 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
       <html><head><title>Users List Report</title><style>
         @page { size: A4 landscape; margin: 14mm; }
         * { box-sizing: border-box; }
-        body { margin: 0; color: #171717; font-family: Arial, Helvetica, sans-serif; background: #fff; }
+        body { position: relative; margin: 0; color: #171717; font-family: Arial, Helvetica, sans-serif; background: #fff; }
+        .watermark { position: fixed; z-index: 0; width: 135mm; height: 135mm; object-fit: contain; left: 50%; top: 50%; transform: translate(-50%, -50%); opacity: .045; }
+        header, .intro, table, footer { position: relative; z-index: 1; }
         header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 8mm; border-bottom: 2px solid #171717; }
         h1 { margin: 0 0 5px; font-size: 27px; letter-spacing: .5px; }
         p { margin: 0; line-height: 1.5; }
@@ -245,7 +248,7 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
         tbody tr:nth-child(even) { background: #fafafa; }
         footer { margin-top: 8mm; padding-top: 4mm; border-top: 1px solid #e5e5e5; color: #737373; font-size: 9px; }
         @media print { body { background: #fff; } }
-      </style></head><body>
+      </style></head><body><img class="watermark" src="${logoImg}" alt="" />
         <header><div><h1>Users List</h1><p class="muted">Makezy Group management system</p></div><div class="meta"><div><strong>${users.length}</strong> user${users.length === 1 ? '' : 's'}</div><div>Generated ${escapeHtml(new Date().toLocaleString())}</div></div></header>
         <p class="intro">Complete user directory with account names, contact details, roles, and departments.</p>
         <table><thead><tr><th>S/No.</th><th>Name</th><th>Email</th><th>Role</th><th>Department</th></tr></thead><tbody>${rows}</tbody></table>

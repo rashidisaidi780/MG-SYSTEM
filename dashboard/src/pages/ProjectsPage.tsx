@@ -3,6 +3,7 @@ import { Plus, MoreHorizontal, Download } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
+import logoImg from '@/assets/logo.jpeg';
 import projectsService from '@/services/projects';
 import clientsService from '@/services/clients';
 import { authService } from '@/services/auth';
@@ -190,7 +191,9 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
       <html><head><title>Project Portfolio Report</title><style>
         @page { size: A4; margin: 14mm; }
         * { box-sizing: border-box; }
-        body { margin: 0; color: #171717; font-family: Arial, Helvetica, sans-serif; background: #fff; }
+        body { position: relative; margin: 0; color: #171717; font-family: Arial, Helvetica, sans-serif; background: #fff; }
+        .watermark { position: fixed; z-index: 0; width: 135mm; height: 135mm; object-fit: contain; left: 50%; top: 50%; transform: translate(-50%, -50%); opacity: .045; }
+        header, .intro, .project, footer { position: relative; z-index: 1; }
         header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 8mm; border-bottom: 2px solid #171717; }
         h1 { margin: 0 0 5px; font-size: 27px; letter-spacing: .5px; }
         h2 { margin: 0; font-size: 17px; }
@@ -208,7 +211,7 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
         .summary p { color: #525252; }
         footer { margin-top: 8mm; padding-top: 4mm; border-top: 1px solid #e5e5e5; color: #737373; font-size: 9px; }
         @media print { body { background: #fff; } }
-      </style></head><body>
+      </style></head><body><img class="watermark" src="${logoImg}" alt="" />
         <header><div><h1>Project Portfolio Report</h1><p class="muted">Makezy Group management system</p></div><div class="meta"><div><strong>${projects.length}</strong> project${projects.length === 1 ? '' : 's'}</div><div>Generated ${escapeHtml(generatedAt)}</div></div></header>
         <p class="intro">Complete project overview including budgets, ownership, progress, timelines, and summaries.</p>
         ${projectRows}
