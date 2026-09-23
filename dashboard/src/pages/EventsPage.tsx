@@ -39,26 +39,17 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
       .finally(() => setIsLoading(false));
   }, [showToast]);
 
-  const visiblePosts = useMemo(
-    () =>
-      posts.filter((post) => {
-        if (!post.expiresAt) return true;
-        return new Date(post.expiresAt).getTime() > Date.now();
-      }),
-    [posts],
-  );
-
   const filteredPosts = useMemo(
     () => {
-      if (!searchQuery.trim()) return visiblePosts;
+      if (!searchQuery.trim()) return posts;
       const query = searchQuery.toLowerCase();
-      return visiblePosts.filter(
+      return posts.filter(
         (post) =>
           post.title.toLowerCase().includes(query) ||
           post.description.toLowerCase().includes(query),
       );
     },
-    [visiblePosts, searchQuery],
+    [posts, searchQuery],
   );
 
   const totalNewPosts = useMemo(

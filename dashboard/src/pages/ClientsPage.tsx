@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Mail, Phone, Edit3, Trash2 } from 'lucide-react';
+import { Plus, Mail, Phone, Download, Edit3, Trash2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
@@ -41,6 +41,13 @@ const toPageClient = (client: ServiceClient, otherPhone = ''): Client => ({
   otherPhone,
   tinNumber: client.tin,
 });
+
+const escapeHtml = (value: string | number | null | undefined) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
 
 export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [clients, setClients] = useState<Client[]>(initialClients);
@@ -86,6 +93,59 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
   const closeForm = () => {
     setIsFormOpen(false);
     setFormClient(emptyClient);
+  };
+
+  const downloadClient = (client: Client) => {
+    const reportWindow = window.open('', '_blank', 'width=900,height=1100');
+    if (!reportWindow) {
+      showToast('Please allow pop-ups to download the client report as a PDF', 'warning');
+      return;
+    }
+
+    const formattedDate = client.date
+      ? new Date(client.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+      : 'Not provided';
+
+    reportWindow.document.write(`<!doctype html>
+      <html><head><title>${escapeHtml(client.name)} - Client Details</title><style>
+        @page { size: A4; margin: 14mm; }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: #171717; font-family: Arial, Helvetica, sans-serif; background: #fff; }
+        header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 8mm; border-bottom: 2px solid #171717; }
+        h1 { margin: 0 0 5px; font-size: 27px; letter-spacing: .5px; }
+        h2 { margin: 0; font-size: 20px; }
+        p { margin: 0; line-height: 1.5; }
+        .muted { color: #737373; font-size: 11px; }
+        .meta { text-align: right; color: #737373; font-size: 10px; line-height: 1.6; }
+        .intro { padding: 7mm 0 5mm; font-size: 12px; color: #525252; }
+        .client { page-break-inside: avoid; padding: 7mm; border: 1px solid #d4d4d4; border-radius: 10px; }
+        .client-heading { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding-bottom: 5mm; border-bottom: 1px solid #e5e5e5; }
+        .status { padding: 5px 9px; border-radius: 999px; background: #f5f5f5; font-size: 10px; font-weight: bold; white-space: nowrap; }
+        .details { display: grid; grid-template-columns: 1fr 1fr; gap: 7mm 12mm; padding: 7mm 0; }
+        .label { display: block; margin-bottom: 5px; color: #737373; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; }
+        .value { font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+        footer { margin-top: 8mm; padding-top: 4mm; border-top: 1px solid #e5e5e5; color: #737373; font-size: 9px; }
+        @media print { body { background: #fff; } }
+      </style></head><body>
+        <header><div><h1>Client Details</h1><p class="muted">Makezy Group client directory</p></div><div class="meta"><div>Generated ${escapeHtml(new Date().toLocaleString())}</div><div>Client record</div></div></header>
+        <p class="intro">Complete contact and account information for this client.</p>
+        <main class="client">
+          <div class="client-heading"><div><h2>${escapeHtml(client.name)}</h2><p class="muted">${escapeHtml(client.company)}</p></div><span class="status">${escapeHtml(client.status)}</span></div>
+          <section class="details">
+            <div><span class="label">Email</span><div class="value">${escapeHtml(client.email)}</div></div>
+            <div><span class="label">Primary phone</span><div class="value">${escapeHtml(client.phone)}</div></div>
+            <div><span class="label">Alternative phone</span><div class="value">${escapeHtml(client.otherPhone || 'Not provided')}</div></div>
+            <div><span class="label">TIN number</span><div class="value">${escapeHtml(client.tinNumber)}</div></div>
+            <div><span class="label">Address</span><div class="value">${escapeHtml(client.address || 'Not provided')}</div></div>
+            <div><span class="label">Country</span><div class="value">${escapeHtml(client.country || 'Not provided')}</div></div>
+            <div><span class="label">Client since</span><div class="value">${escapeHtml(formattedDate)}</div></div>
+          </section>
+        </main>
+        <footer>Generated from the Makezy Group client directory.</footer>
+        <script>const printReport = () => { window.focus(); window.print(); }; if (document.readyState === 'complete') printReport(); else { window.addEventListener('load', printReport, { once: true }); window.setTimeout(printReport, 1000); }</script>
+      </body></html>`);
+    reportWindow.document.close();
+    showToast('Client report opened for PDF download', 'success');
   };
 
   const handleChange = (field: keyof Client, value: string) => {
@@ -180,6 +240,14 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
                   .slice(0, 2).toUpperCase()}
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => downloadClient(client)}
+                  className="p-2 rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-black transition-colors"
+                  title="Download client details"
+                  aria-label={`Download ${client.name} details`}
+                >
+                  <Download size={16} />
+                </button>
                 <button
                   data-mutation-control
                   onClick={() => openForm('edit', client)}

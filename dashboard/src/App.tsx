@@ -28,19 +28,6 @@ type StoredUser = {
   permissions?: Record<string, string> | string[];
 };
 
-const getStoredPage = (user: StoredUser | null): PageId => {
-  if (!user) return 'signin';
-
-  try {
-    const storedPage = localStorage.getItem('mg_current_page') as PageId | null;
-    return storedPage && storedPage !== 'signin' && storedPage in pageMeta
-      ? storedPage
-      : 'dashboard';
-  } catch {
-    return 'dashboard';
-  }
-};
-
 const pageMeta: Record<PageId, { title: string; subtitle: string }> = {
   signin: { title: 'Sign in', subtitle: 'Access your workspace' },
   dashboard: { title: 'Dashboard', subtitle: 'Company overview & key metrics' },
@@ -58,7 +45,7 @@ const pageMeta: Record<PageId, { title: string; subtitle: string }> = {
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<StoredUser | null>(() => authService.getStoredUser());
-  const [page, setPage] = useState<PageId>(() => getStoredPage(currentUser));
+  const [page, setPage] = useState<PageId>('signin');
   const [isLoading, setIsLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);

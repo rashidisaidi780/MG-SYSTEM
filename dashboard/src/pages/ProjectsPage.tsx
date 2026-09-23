@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, MoreHorizontal, Filter, Edit3, Trash2 } from 'lucide-react';
+import { Plus, MoreHorizontal, Download } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
@@ -96,6 +96,13 @@ const emptyProject: Project = {
   description: '',
 };
 
+const escapeHtml = (value: string | number | null | undefined) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
+
 export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [projectList, setProjectList] = useState<Project[]>(initialProjects);
   const [clients, setClients] = useState<ClientOption[]>(initialClients);
@@ -151,6 +158,67 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
     setActiveProject(null);
   };
 
+  const downloadReport = (projects: Project[] = projectList) => {
+    if (!projects.length) {
+      showToast('There are no projects to include in the report', 'warning');
+      return;
+    }
+
+    const reportWindow = window.open('', '_blank', 'width=1000,height=1100');
+    if (!reportWindow) {
+      showToast('Please allow pop-ups to download the project report as a PDF', 'warning');
+      return;
+    }
+
+    const generatedAt = new Date().toLocaleString();
+    const projectRows = projects.map((project) => `
+      <article class="project">
+        <div class="project-heading">
+          <div><h2>${escapeHtml(project.name)}</h2><p class="muted">${escapeHtml(selectedClientName(project.clientId) || 'No client assigned')}</p></div>
+          <span class="status">${escapeHtml(project.status)}</span>
+        </div>
+        <div class="details">
+          <div><span class="label">Budget</span><strong>${escapeHtml(project.budget)}</strong></div>
+          <div><span class="label">Progress</span><strong>${escapeHtml(project.progress)}%</strong></div>
+          <div><span class="label">Project lead</span><strong>${escapeHtml(project.lead)}</strong></div>
+          <div><span class="label">Timeline</span><strong>${escapeHtml(project.startDate)} to ${escapeHtml(project.endDate)}</strong></div>
+        </div>
+        <div class="summary"><span class="label">Project summary</span><p>${escapeHtml(project.description || 'No description provided.')}</p></div>
+      </article>`).join('');
+
+    reportWindow.document.write(`<!doctype html>
+      <html><head><title>Project Portfolio Report</title><style>
+        @page { size: A4; margin: 14mm; }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: #171717; font-family: Arial, Helvetica, sans-serif; background: #fff; }
+        header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 8mm; border-bottom: 2px solid #171717; }
+        h1 { margin: 0 0 5px; font-size: 27px; letter-spacing: .5px; }
+        h2 { margin: 0; font-size: 17px; }
+        p { margin: 0; line-height: 1.5; }
+        .muted { color: #737373; font-size: 11px; }
+        .meta { text-align: right; color: #737373; font-size: 10px; line-height: 1.6; }
+        .intro { padding: 7mm 0 5mm; font-size: 12px; color: #525252; }
+        .project { page-break-inside: avoid; margin-bottom: 7mm; padding: 6mm; border: 1px solid #d4d4d4; border-radius: 10px; }
+        .project-heading { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding-bottom: 4mm; border-bottom: 1px solid #e5e5e5; }
+        .status { padding: 5px 9px; border-radius: 999px; background: #f5f5f5; font-size: 10px; font-weight: bold; white-space: nowrap; }
+        .details { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5mm; padding: 5mm 0; }
+        .label { display: block; margin-bottom: 5px; color: #737373; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; }
+        .details strong { font-size: 11px; font-weight: 600; }
+        .summary { padding-top: 4mm; border-top: 1px solid #e5e5e5; font-size: 11px; }
+        .summary p { color: #525252; }
+        footer { margin-top: 8mm; padding-top: 4mm; border-top: 1px solid #e5e5e5; color: #737373; font-size: 9px; }
+        @media print { body { background: #fff; } }
+      </style></head><body>
+        <header><div><h1>Project Portfolio Report</h1><p class="muted">Makezy Group management system</p></div><div class="meta"><div><strong>${projects.length}</strong> project${projects.length === 1 ? '' : 's'}</div><div>Generated ${escapeHtml(generatedAt)}</div></div></header>
+        <p class="intro">Complete project overview including budgets, ownership, progress, timelines, and summaries.</p>
+        ${projectRows}
+        <footer>Generated from the Makezy Group project portfolio.</footer>
+        <script>const printReport = () => { window.focus(); window.print(); }; if (document.readyState === 'complete') printReport(); else { window.addEventListener('load', printReport, { once: true }); window.setTimeout(printReport, 1000); }</script>
+      </body></html>`);
+    reportWindow.document.close();
+    showToast('Project report opened for PDF download', 'success');
+  };
+
   const handleFormChange = (field: keyof Project, value: string | number) => {
     setFormProject((current) => ({ ...current, [field]: value }));
   };
@@ -194,8 +262,8 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
           <h2 className="text-2xl font-semibold">Project portfolio</h2>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-3.5 py-2 rounded-2xl border border-neutral-200 text-sm font-medium hover:bg-neutral-50 transition-colors">
-            <Filter size={15} /> Filter
+          <button onClick={() => downloadReport()} className="flex items-center gap-2 px-3.5 py-2 rounded-2xl border border-neutral-200 text-sm font-medium hover:bg-neutral-50 transition-colors">
+            <Download size={15} /> Download report
           </button>
           <button
             data-mutation-control
@@ -275,6 +343,15 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
               </div>
               <div className="flex items-center gap-2">
                 <button
+                      type="button"
+                      onClick={() => downloadReport([activeProject])}
+                      title="Download this project report"
+                      aria-label={`Download ${activeProject.name} report`}
+                      className="rounded-3xl border border-neutral-200 p-3 text-neutral-700 hover:bg-neutral-100 transition"
+                    >
+                      <Download size={16} />
+                    </button>
+                    <button
                   data-mutation-control
                   onClick={() => {
                     openForm('edit', activeProject);

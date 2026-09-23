@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Mail, Key, Edit3, Trash2, ShieldCheck, Building2 } from 'lucide-react';
+import { Plus, Mail, Key, Download, Edit3, Trash2, ShieldCheck, Building2 } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
@@ -138,6 +138,13 @@ const emptyUser: UserAccount = {
   },
 };
 
+const escapeHtml = (value: string | number | null | undefined) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
+
 export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [users, setUsers] = useState<UserAccount[]>(initialUsers);
   const [departments] = useDepartmentOptions();
@@ -197,6 +204,56 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
     setIsFormOpen(false);
     setFormUser(emptyUser);
     setShowPassword(false);
+  };
+
+  const downloadUsers = () => {
+    if (!users.length) {
+      showToast('There are no users to include in the report', 'warning');
+      return;
+    }
+
+    const reportWindow = window.open('', '_blank', 'width=1000,height=1100');
+    if (!reportWindow) {
+      showToast('Please allow pop-ups to download the users report as a PDF', 'warning');
+      return;
+    }
+
+    const rows = users.map((user, index) => {
+      const departmentName = departments.find((department) => department.id === user.department)?.name || user.department || 'Not assigned';
+      return `<tr><td>${index + 1}</td><td>${escapeHtml(user.username)}</td><td>${escapeHtml(user.email)}</td><td>${escapeHtml(user.role)}</td><td>${escapeHtml(departmentName)}</td></tr>`;
+    }).join('');
+
+    reportWindow.document.write(`<!doctype html>
+      <html><head><title>Users List Report</title><style>
+        @page { size: A4 landscape; margin: 14mm; }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: #171717; font-family: Arial, Helvetica, sans-serif; background: #fff; }
+        header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 8mm; border-bottom: 2px solid #171717; }
+        h1 { margin: 0 0 5px; font-size: 27px; letter-spacing: .5px; }
+        p { margin: 0; line-height: 1.5; }
+        .muted { color: #737373; font-size: 11px; }
+        .meta { text-align: right; color: #737373; font-size: 10px; line-height: 1.6; }
+        .intro { padding: 7mm 0 5mm; font-size: 12px; color: #525252; }
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        th { padding: 10px; color: #525252; background: #f5f5f5; font-size: 9px; letter-spacing: 1px; text-align: left; text-transform: uppercase; }
+        td { padding: 11px 10px; border-bottom: 1px solid #e5e5e5; font-size: 11px; overflow-wrap: anywhere; }
+        th:first-child, td:first-child { width: 8%; text-align: center; }
+        th:nth-child(2), td:nth-child(2) { width: 23%; }
+        th:nth-child(3), td:nth-child(3) { width: 28%; }
+        th:nth-child(4), td:nth-child(4) { width: 18%; }
+        th:nth-child(5), td:nth-child(5) { width: 23%; }
+        tbody tr:nth-child(even) { background: #fafafa; }
+        footer { margin-top: 8mm; padding-top: 4mm; border-top: 1px solid #e5e5e5; color: #737373; font-size: 9px; }
+        @media print { body { background: #fff; } }
+      </style></head><body>
+        <header><div><h1>Users List</h1><p class="muted">Makezy Group management system</p></div><div class="meta"><div><strong>${users.length}</strong> user${users.length === 1 ? '' : 's'}</div><div>Generated ${escapeHtml(new Date().toLocaleString())}</div></div></header>
+        <p class="intro">Complete user directory with account names, contact details, roles, and departments.</p>
+        <table><thead><tr><th>S/No.</th><th>Name</th><th>Email</th><th>Role</th><th>Department</th></tr></thead><tbody>${rows}</tbody></table>
+        <footer>Generated from the Makezy Group user directory.</footer>
+        <script>const printReport = () => { window.focus(); window.print(); }; if (document.readyState === 'complete') printReport(); else { window.addEventListener('load', printReport, { once: true }); window.setTimeout(printReport, 1000); }</script>
+      </body></html>`);
+    reportWindow.document.close();
+    showToast('Users report opened for PDF download', 'success');
   };
 
   const handleChange = (field: keyof UserAccount, value: string) => {
@@ -290,13 +347,22 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
           <p className="text-sm text-neutral-400 font-medium">{filteredUsers.length} users total</p>
           <h2 className="text-2xl font-semibold">User management</h2>
         </div>
-        <button
-          data-mutation-control
-          onClick={() => openForm('add')}
-          className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-black text-white text-sm font-semibold shadow-lg shadow-black/10 hover:bg-neutral-900 transition-all duration-200"
-        >
-          <Plus size={16} /> Add User
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={downloadUsers}
+            title="Download all users"
+            className="flex items-center gap-2 rounded-2xl border border-neutral-200 px-3.5 py-3 text-sm font-medium hover:bg-neutral-50 transition-colors"
+          >
+            <Download size={16} /> Download
+          </button>
+          <button
+            data-mutation-control
+            onClick={() => openForm('add')}
+            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-black text-white text-sm font-semibold shadow-lg shadow-black/10 hover:bg-neutral-900 transition-all duration-200"
+          >
+            <Plus size={16} /> Add User
+          </button>
+        </div>
       </div>
 
       {isLoading ? <p className="text-sm text-neutral-500">Loading users...</p> : null}

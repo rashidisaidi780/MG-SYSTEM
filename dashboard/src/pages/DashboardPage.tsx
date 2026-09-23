@@ -3,6 +3,8 @@ import { FileText, FolderKanban, Users, ClipboardList, Activity, AlertTriangle }
 import { SYSTEM_ACTIVITIES_STORAGE_KEY, type SystemActivity } from '@/utils/systemNotifications';
 import invoicesService from '@/services/invoices';
 import projectsService from '@/services/projects';
+import bookingsService from '@/services/bookings';
+import officeOrdersService from '@/services/officeOrders';
 import { authService } from '@/services/auth';
 
 const readCount = (key: string) => {
@@ -17,6 +19,7 @@ const readCount = (key: string) => {
 export default function DashboardPage() {
   const [invoiceCount, setInvoiceCount] = useState(0);
   const [projectCount, setProjectCount] = useState(0);
+  const [orderCount, setOrderCount] = useState(0);
   const [activities, setActivities] = useState<SystemActivity[]>(() => {
     try {
       const stored = localStorage.getItem(SYSTEM_ACTIVITIES_STORAGE_KEY);
@@ -54,9 +57,22 @@ export default function DashboardPage() {
       });
   }, []);
 
+  useEffect(() => {
+    const loadOrderCount = async () => {
+      const requests: Promise<unknown[]>[] = [];
+      if (authService.hasPermission('Booking Orders')) requests.push(bookingsService.getAll());
+      if (authService.hasPermission('Office Orders')) requests.push(officeOrdersService.getAll());
+
+      const results = await Promise.allSettled(requests);
+      setOrderCount(results.reduce((total, result) => total + (result.status === 'fulfilled' ? result.value.length : 0), 0));
+    };
+
+    void loadOrderCount();
+  }, []);
+
   const projects = projectCount;
   const clients = readCount('clients');
-  const orders = readCount('office-orders') + readCount('bookings');
+  const orders = orderCount;
   const today = new Date();
   const thirtyDaysFromNow = new Date(today);
   thirtyDaysFromNow.setDate(today.getDate() + 30);
