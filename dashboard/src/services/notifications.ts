@@ -36,19 +36,22 @@ class NotificationsService {
     const queryString = queryParams.toString();
     const endpoint = queryString ? `/notifications?${queryString}` : '/notifications';
     
-    return apiClient.get<Notification[]>(endpoint);
+    const response = await apiClient.get<{ data: Notification[] }>(endpoint);
+    return response.data;
   }
 
   async getById(id: string): Promise<Notification> {
-    return apiClient.get<Notification>(`/notifications/${id}`);
+    return apiClient.get<{ data: Notification }>(`/notifications/${id}`).then((response) => response.data);
   }
 
   async create(data: CreateNotificationRequest): Promise<Notification> {
-    return apiClient.post<Notification>('/notifications', data);
+    const response = await apiClient.post<{ data: Notification }>('/notifications', data);
+    return response.data;
   }
 
-  async markAsRead(id: string): Promise<Notification> {
-    return apiClient.patch<Notification>(`/notifications/${id}`, { read: true });
+  async markAsRead(id: string, read = true): Promise<Notification> {
+    const response = await apiClient.patch<{ data: Notification }>(`/notifications/${id}`, { read });
+    return response.data;
   }
 
   async markAllAsRead(): Promise<void> {
@@ -70,6 +73,7 @@ class NotificationsService {
   subscribeToUpdates(userId: string, callback: (notification: Notification) => void): void {
     // This would typically use WebSocket or Server-Sent Events
     // For now, it's a placeholder for real-time notification subscription
+    void callback;
     console.log(`Subscribed to notifications for user: ${userId}`);
   }
 }

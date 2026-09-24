@@ -13,6 +13,7 @@ use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\UpdateController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\NotificationController;
 
 // Public authentication routes (no token required)
 Route::post('/auth/login', [AuthController::class, 'login']);
@@ -23,6 +24,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/auth/refresh', [AuthController::class, 'refresh']);
+
+    // Notifications are always scoped to the authenticated admin or user.
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications', [NotificationController::class, 'store']);
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllRead']);
+    Route::get('/notifications/unread/count', [NotificationController::class, 'unreadCount']);
+    Route::delete('/notifications', [NotificationController::class, 'destroyAll']);
+    Route::patch('/notifications/{notification}', [NotificationController::class, 'update']);
+    Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy']);
 
     // Admin endpoints (only accessible by admins)
     Route::put('/admin/users/{userId}', [AdminAuthController::class, 'updateUser']);

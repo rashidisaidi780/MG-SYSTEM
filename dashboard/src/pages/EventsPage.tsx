@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
-import { ImagePlus, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ImagePlus, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import updatesService, { type UpdatePost } from '@/services/updates';
 
 interface EventPost extends UpdatePost {
-  expiresAt: string | null;
+  expiresAt: string;
 }
 
 const initialPosts: EventPost[] = [
@@ -27,29 +27,37 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
   const { showToast } = useToast();
 
   useEffect(() => {
+    const timer = window.setInterval(() => setCurrentTime(Date.now()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     void updatesService.getAll()
-      .then((loadedPosts) => setPosts(loadedPosts.map((post) => ({
-        ...post,
-        expiresAt: new Date(new Date(post.createdAt).getTime() + post.durationDays * 86400000).toISOString(),
-      }))))
+      .then((loadedPosts) => setPosts(loadedPosts))
       .catch(() => showToast('Unable to load events from the server', 'error'))
       .finally(() => setIsLoading(false));
   }, [showToast]);
 
+  const visiblePosts = useMemo(
+    () => posts.filter((post) => new Date(post.expiresAt).getTime() > currentTime),
+    [posts, currentTime],
+  );
+
   const filteredPosts = useMemo(
     () => {
-      if (!searchQuery.trim()) return posts;
+      if (!searchQuery.trim()) return visiblePosts;
       const query = searchQuery.toLowerCase();
-      return posts.filter(
+      return visiblePosts.filter(
         (post) =>
           post.title.toLowerCase().includes(query) ||
           post.description.toLowerCase().includes(query),
       );
     },
-    [posts, searchQuery],
+    [visiblePosts, searchQuery],
   );
 
   const totalNewPosts = useMemo(
@@ -164,7 +172,7 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
     <div className="p-8 animate-fade-in">
       <div className="flex items-center justify-between gap-4 mb-6">
         <div>
-          <p className="text-sm text-neutral-400 font-medium">{posts.length} events</p>
+          <p className="text-sm text-neutral-400 font-medium">{visiblePosts.length} events</p>
           <h2 className="text-2xl font-semibold">Event & Updates</h2>
         </div>
         <button
@@ -179,7 +187,7 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <div className="rounded-3xl border border-neutral-200 bg-white p-5">
           <p className="text-xs uppercase tracking-[0.2em] text-neutral-400">Total posts</p>
-          <p className="mt-3 text-3xl font-bold tracking-tight">{posts.length}</p>
+          <p className="mt-3 text-3xl font-bold tracking-tight">{visiblePosts.length}</p>
         </div>
         <div className="rounded-3xl border border-neutral-200 bg-white p-5">
           <p className="text-xs uppercase tracking-[0.2em] text-neutral-400">New</p>

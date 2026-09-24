@@ -10,7 +10,10 @@ class UpdateController extends Controller
     // Get all updates
     public function index()
     {
-        $updates = Update::orderBy('update_date', 'desc')->get();
+        $updates = Update::orderBy('created_at', 'desc')->get()->filter(function (Update $update) {
+            $duration = max(1, $update->update_duration ?? 1);
+            return $update->created_at && $update->created_at->copy()->addDays($duration)->isFuture();
+        })->values();
 
         return response()->json([
             'success' => true,

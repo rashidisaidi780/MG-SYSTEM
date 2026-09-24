@@ -4,6 +4,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import logoImg from '@/assets/logo.jpeg';
+import darkLogoImg from '@/assets/Makezy_logo.jpeg';
 import { adminService } from '@/services/admin';
 import { useDepartmentOptions } from '@/utils/departments';
 
@@ -219,6 +220,7 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
       return;
     }
 
+    const reportLogo = localStorage.getItem('mg_theme') === 'dark' ? darkLogoImg : logoImg;
     const rows = users.map((user, index) => {
       const departmentName = departments.find((department) => department.id === user.department)?.name || user.department || 'Not assigned';
       return `<tr><td>${index + 1}</td><td>${escapeHtml(user.username)}</td><td>${escapeHtml(user.email)}</td><td>${escapeHtml(user.role)}</td><td>${escapeHtml(departmentName)}</td></tr>`;
@@ -248,7 +250,7 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
         tbody tr:nth-child(even) { background: #fafafa; }
         footer { margin-top: 8mm; padding-top: 4mm; border-top: 1px solid #e5e5e5; color: #737373; font-size: 9px; }
         @media print { body { background: #fff; } }
-      </style></head><body><img class="watermark" src="${logoImg}" alt="" />
+      </style></head><body><img class="watermark" src="${reportLogo}" alt="" />
         <header><div><h1>Users List</h1><p class="muted">Makezy Group management system</p></div><div class="meta"><div><strong>${users.length}</strong> user${users.length === 1 ? '' : 's'}</div><div>Generated ${escapeHtml(new Date().toLocaleString())}</div></div></header>
         <p class="intro">Complete user directory with account names, contact details, roles, and departments.</p>
         <table><thead><tr><th>S/No.</th><th>Name</th><th>Email</th><th>Role</th><th>Department</th></tr></thead><tbody>${rows}</tbody></table>

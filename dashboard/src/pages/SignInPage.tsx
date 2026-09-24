@@ -54,8 +54,8 @@ export default function SignInPage({ onSignIn }: { onSignIn: (user: AuthUser) =>
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-100 px-4 py-10">
-      <div className="w-full max-w-8xl min-h-[95vh] grid grid-cols-1 md:grid-cols-[1.35fr_1fr] overflow-hidden rounded-[32px] bg-white shadow-2xl">
+    <div className="flex h-screen w-full items-center justify-center overflow-hidden bg-slate-100 px-4 py-4 md:px-6 md:py-6">
+      <div className="grid h-full max-h-full w-full max-w-8xl grid-cols-1 overflow-hidden rounded-[32px] bg-white shadow-2xl md:grid-cols-[1.35fr_1fr]">
         <section className="relative hidden md:block h-full">
           <div className="absolute inset-0 bg-slate-950/55" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.35),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(99,102,241,0.35),transparent_20%)]" />
@@ -74,7 +74,7 @@ export default function SignInPage({ onSignIn }: { onSignIn: (user: AuthUser) =>
           </div>
         </section>
 
-        <main className="flex items-center justify-center bg-white p-10 md:p-12">
+        <main className="flex min-h-0 items-center justify-center overflow-hidden bg-white p-6 md:p-12">
           <div className="w-full max-w-lg">
             <div className="mb-10 text-center">
               <img src={logoImg} alt="Logo" className="mx-auto mb-8 h-24 w-24 rounded-full border-2 border-slate-200 object-cover shadow-lg" />

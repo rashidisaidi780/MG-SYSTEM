@@ -1,58 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Bell, Trash2, CheckCircle } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Bell, CheckCircle } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import { SYSTEM_ACTIVITIES_STORAGE_KEY, type SystemNotificationEventDetail } from '@/utils/systemNotifications';
-import { usePersistentState } from '@/utils/persistentState';
-
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  time: string;
-  read: boolean;
-}
-
-interface StoredActivity {
-  id: string;
-  title: string;
-  message: string;
-  occurredAt: string;
-}
-
-interface StoredEvent {
-  id: string;
-  title: string;
-  description: string;
-  createdAt: string;
-  expiresAt: string | null;
-  isNew: boolean;
-}
-
-interface StoredProject {
-  id: string;
-  name: string;
-  status: string;
-  endDate: string;
-}
-
-interface StoredInvoice {
-  id: string;
-  client: string;
-  dueRaw?: string;
-  due: string;
-  status: string;
-}
-
-const initial: Notification[] = [];
-
-const readStorage = <T,>(key: string): T[] => {
-  try {
-    const stored = localStorage.getItem(`mg_${key}`);
-    return stored ? (JSON.parse(stored) as T[]) : [];
-  } catch {
-    return [];
-  }
-};
+import { useToast } from '@/contexts/ToastContext';
+import notificationsService, { type Notification } from '@/services/notifications';
 
 const formatTime = (value: string) => {
   const date = new Date(value);
@@ -61,173 +11,94 @@ const formatTime = (value: string) => {
     : date.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 };
 
-const dateOnly = (value: string) => {
-  const date = new Date(`${value}T00:00:00`);
-  return Number.isNaN(date.getTime()) ? null : date;
-};
-
-const buildSourceNotifications = (): Notification[] => {
-  const activities = readStorage<StoredActivity>(SYSTEM_ACTIVITIES_STORAGE_KEY.replace('mg_', '')).map((activity) => ({
-    id: activity.id,
-    title: activity.title,
-    message: activity.message,
-    time: formatTime(activity.occurredAt),
-    read: true,
-  }));
-
-  const events = readStorage<StoredEvent>('events')
-    .filter((event) => !event.expiresAt || new Date(event.expiresAt).getTime() > Date.now())
-    .map((event) => ({
-      id: `event-${event.id}`,
-      title: event.title,
-      message: event.description,
-      time: formatTime(event.createdAt),
-      read: !event.isNew,
-    }));
-
-  const projects = readStorage<StoredProject>('projects').map((project) => ({
-    id: `project-${project.id}`,
-    title: `Project: ${project.name}`,
-    message: `${project.status} project${project.endDate ? `, deadline ${project.endDate}` : ''}.`,
-    time: 'Project update',
-    read: true,
-  }));
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const deadline = new Date(today);
-  deadline.setDate(deadline.getDate() + 30);
-  const invoices = readStorage<StoredInvoice>('invoices').flatMap((invoice) => {
-    if (invoice.status === 'Paid' || invoice.status === 'Canceled') return [];
-    const dueDate = dateOnly(invoice.dueRaw || invoice.due);
-    if (!dueDate || dueDate > deadline) return [];
-    const expired = dueDate < today;
-    return [{
-      id: `invoice-alert-${invoice.id}-${invoice.dueRaw || invoice.due}`,
-      title: expired ? 'Invoice expired' : 'Invoice due soon',
-      message: `${invoice.id} for ${invoice.client} is ${expired ? 'expired' : 'due'} ${dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}.`,
-      time: expired ? 'Expired' : 'Due within 30 days',
-      read: false,
-    }];
-  });
-
-  return [...events, ...invoices, ...projects, ...activities];
-};
-
-export default function NotificationsPage({ refreshKey, searchQuery = '' }: { refreshKey?: number; searchQuery?: string }) {
-  const [items, setItems] = usePersistentState<Notification[]>('notifications', initial);
+export default function NotificationsPage({ searchQuery = '' }: { refreshKey?: number; searchQuery?: string }) {
+  const [items, setItems] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<{ kind: 'all' | 'one'; id?: string } | null>(null);
-
-  const syncSourceNotifications = () => {
-    const sourceItems = buildSourceNotifications();
-    setItems((current) => {
-      const currentById = new Map(current.map((item) => [item.id, item]));
-      const merged = sourceItems.map((item) => ({ ...item, read: currentById.get(item.id)?.read ?? item.read }));
-      const sourceIds = new Set(sourceItems.map((item) => item.id));
-      return [...merged, ...current.filter((item) => !sourceIds.has(item.id))];
-    });
-  };
+  const { showToast } = useToast();
 
   useEffect(() => {
-    syncSourceNotifications();
-  }, [refreshKey]);
+    void notificationsService.getAll()
+      .then(setItems)
+      .catch(() => showToast('Unable to load notifications from the server', 'error'))
+      .finally(() => setIsLoading(false));
+  }, [showToast]);
 
-  useEffect(() => {
-    const handleSystemNotification = (event: Event) => {
-      const { title, message } = (event as CustomEvent<SystemNotificationEventDetail>).detail;
-      const timeLabel = new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const filteredItems = useMemo(() => {
+    if (!searchQuery.trim()) return items;
+    const query = searchQuery.toLowerCase();
+    return items.filter((item) => `${item.title} ${item.message}`.toLowerCase().includes(query));
+  }, [items, searchQuery]);
 
-      setItems((current) => [
-        {
-          id: `activity-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-          title,
-          message,
-          time: timeLabel,
-          read: false,
-        },
-        ...current,
-      ]);
-    };
-
-    window.addEventListener('system-notification', handleSystemNotification);
-    return () => window.removeEventListener('system-notification', handleSystemNotification);
-  }, []);
-
-  const markRead = (id: string) => {
-    setItems((s) => s.map((it) => (it.id === id ? { ...it, read: true } : it)));
+  const markRead = (id: string, read: boolean) => {
+    void notificationsService.markAsRead(id, read)
+      .then((updated) => setItems((current) => current.map((item) => item.id === id ? updated : item)))
+      .catch(() => showToast('Unable to update notification', 'error'));
   };
 
-  const toggleRead = (id: string) => {
-    setItems((s) => s.map((it) => (it.id === id ? { ...it, read: !it.read } : it)));
+  const markAllRead = () => {
+    void notificationsService.markAllAsRead()
+      .then(() => setItems((current) => current.map((item) => ({ ...item, read: true }))))
+      .catch(() => showToast('Unable to mark notifications as read', 'error'));
   };
 
-  const markAllRead = () => setItems((s) => s.map((it) => ({ ...it, read: true })));
-  const deleteAll = () => {
-    setItems([]);
-    setConfirmDelete(null);
-  };
   const deleteOne = (id: string) => {
-    setItems((s) => s.filter((it) => it.id !== id));
-    setConfirmDelete(null);
+    void notificationsService.delete(id)
+      .then(() => setItems((current) => current.filter((item) => item.id !== id)))
+      .catch(() => showToast('Unable to delete notification', 'error'))
+      .finally(() => setConfirmDelete(null));
+  };
+
+  const deleteAll = () => {
+    void notificationsService.deleteAll()
+      .then(() => setItems([]))
+      .catch(() => showToast('Unable to delete notifications', 'error'))
+      .finally(() => setConfirmDelete(null));
   };
 
   return (
     <div className="p-8 animate-fade-in">
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex items-center justify-between gap-4">
         <div>
-          <p className="text-sm text-neutral-400 font-medium">{items.length} notifications</p>
-          <h2 className="text-2xl font-semibold flex items-center gap-2"><Bell /> Notifications</h2>
+          <p className="text-sm font-medium text-neutral-400">{filteredItems.length} notifications</p>
+          <h2 className="flex items-center gap-2 text-2xl font-semibold"><Bell /> Notifications</h2>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={markAllRead} className="px-4 py-2 rounded-2xl bg-black text-white text-sm">Mark all read</button>
-          <button onClick={() => setConfirmDelete({ kind: 'all' })} className="px-4 py-2 rounded-2xl bg-red-50 text-red-600 text-sm">Delete all</button>
+          <button onClick={markAllRead} className="rounded-2xl bg-black px-4 py-2 text-sm text-white">Mark all read</button>
+          <button onClick={() => setConfirmDelete({ kind: 'all' })} className="rounded-2xl bg-red-50 px-4 py-2 text-sm text-red-600">Delete all</button>
         </div>
       </div>
 
+      {isLoading ? <p className="text-sm text-neutral-500">Loading notifications...</p> : null}
       <div className="space-y-3">
-        {items.map((n) => (
-          <div key={n.id} className={`flex items-start justify-between gap-4 p-4 rounded-lg border ${n.read ? 'bg-neutral-50 border-neutral-100' : 'bg-white border-neutral-200'} `}>
+        {filteredItems.map((notification) => (
+          <div key={notification.id} className={`flex items-start justify-between gap-4 rounded-lg border p-4 ${notification.read ? 'bg-neutral-50 border-neutral-100' : 'bg-white border-neutral-200'}`}>
             <div className="flex-1">
               <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center ${n.read ? 'bg-neutral-100 text-neutral-600' : 'bg-black text-white'}`}>
-                  <CheckCircle size={16} />
-                </div>
-                <div>
-                  <div className="font-semibold">{n.title}</div>
-                  <div className="text-sm text-neutral-500">{n.message}</div>
-                </div>
+                <div className={`flex h-9 w-9 items-center justify-center rounded-full ${notification.read ? 'bg-neutral-100 text-neutral-600' : 'bg-black text-white'}`}><CheckCircle size={16} /></div>
+                <div><div className="font-semibold">{notification.title}</div><div className="text-sm text-neutral-500">{notification.message}</div></div>
               </div>
             </div>
             <div className="flex flex-col items-end gap-2">
-              <div className="text-xs text-neutral-400">{n.time}</div>
+              <div className="text-xs text-neutral-400">{formatTime(notification.timestamp)}</div>
               <div className="flex items-center gap-2">
-                <button onClick={() => toggleRead(n.id)} className="text-xs text-neutral-600 px-2 py-1 rounded hover:bg-neutral-100">{n.read ? 'Mark unread' : 'Mark read'}</button>
-                <button onClick={() => setConfirmDelete({ kind: 'one', id: n.id })} className="text-xs text-red-600 px-2 py-1 rounded hover:bg-red-50">Delete</button>
+                <button onClick={() => markRead(notification.id, !notification.read)} className="rounded px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-100">{notification.read ? 'Mark unread' : 'Mark read'}</button>
+                <button onClick={() => setConfirmDelete({ kind: 'one', id: notification.id })} className="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50">Delete</button>
               </div>
             </div>
           </div>
         ))}
-        {items.length === 0 && (
-          <div className="text-sm text-neutral-500 p-6 text-center">No notifications</div>
-        )}
+        {!isLoading && filteredItems.length === 0 ? <div className="p-6 text-center text-sm text-neutral-500">No notifications</div> : null}
       </div>
 
       <ConfirmDialog
         open={confirmDelete !== null}
         title={confirmDelete?.kind === 'all' ? 'Delete all notifications?' : 'Delete notification?'}
-        message={
-          confirmDelete?.kind === 'all'
-            ? 'This will remove every notification from the list. Do you want to continue?'
-            : 'This notification will be permanently removed. Do you want to continue?'
-        }
+        message="This action affects only your notifications. Other users will not be changed."
         confirmText="Yes"
         cancelText="No"
         destructive
-        onConfirm={() => {
-          if (!confirmDelete) return;
-          if (confirmDelete.kind === 'all') deleteAll();
-          else if (confirmDelete.id) deleteOne(confirmDelete.id);
-        }}
+        onConfirm={() => confirmDelete?.kind === 'all' ? deleteAll() : confirmDelete?.id && deleteOne(confirmDelete.id)}
         onCancel={() => setConfirmDelete(null)}
       />
     </div>

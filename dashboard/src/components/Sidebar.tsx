@@ -15,6 +15,7 @@ import {
   Building2,
 } from 'lucide-react';
 import logoImg from '@/assets/logo.jpeg';
+import darkLogoImg from '@/assets/Makezy_logo.jpeg';
 
 export type PageId =
   | 'dashboard'
@@ -123,7 +124,8 @@ export default function Sidebar({ active, onNavigate, onLogoutRequest, currentUs
     <aside className="w-64 shrink-0 border-r border-neutral-200 bg-white flex flex-col h-screen sticky top-0">
       {/* Brand */}
       <div className="h-16 flex items-center gap-3 px-6 border-b border-neutral-200">
-        <img src={logoImg} alt="Logo" className="w-9 h-9 rounded-lg object-cover" />
+        <img src={logoImg} alt="Logo" className="w-9 h-9 rounded-lg object-cover dark:hidden" />
+        <img src={darkLogoImg} alt="Logo" className="hidden w-9 h-9 rounded-lg object-cover dark:block" />
         <div className="leading-tight">
           <p className="font-bold text-[15px] tracking-tight">MAKEZY GROUP</p>
           <p className="text-[11px] text-neutral-400 font-medium">Management System</p>
@@ -205,7 +207,8 @@ export default function Sidebar({ active, onNavigate, onLogoutRequest, currentUs
       {/* Footer */}
       <div className="border-t border-neutral-200 p-4">
         <div className="flex items-center gap-3">
-          <img src={logoImg} alt="User Avatar" className="w-9 h-9 rounded-full object-cover" />
+          <img src={logoImg} alt="User Avatar" className="w-9 h-9 rounded-full object-cover dark:hidden" />
+          <img src={darkLogoImg} alt="User Avatar" className="hidden w-9 h-9 rounded-full object-cover dark:block" />
           <div className="leading-tight flex-1">
             <p className="text-sm font-semibold">{currentUser?.username || 'Admin User'}</p>
             <p className="text-[11px] text-neutral-400">{currentUser?.email || 'admin@makezy.com'}</p>

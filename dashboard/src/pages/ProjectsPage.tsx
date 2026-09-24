@@ -4,8 +4,10 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import logoImg from '@/assets/logo.jpeg';
+import darkLogoImg from '@/assets/Makezy_logo.jpeg';
 import projectsService from '@/services/projects';
 import clientsService from '@/services/clients';
+import { adminService } from '@/services/admin';
 import { authService } from '@/services/auth';
 
 interface ClientOption {
@@ -21,6 +23,7 @@ interface Project {
   status: 'In Progress' | 'Planning' | 'Review' | 'Completed' | 'On Hold';
   progress: number;
   lead: string;
+  leaderId?: string;
   startDate: string;
   endDate: string;
   description: string;
@@ -92,6 +95,7 @@ const emptyProject: Project = {
   status: 'Planning',
   progress: 0,
   lead: '',
+  leaderId: '',
   startDate: '',
   endDate: '',
   description: '',
@@ -107,6 +111,7 @@ const escapeHtml = (value: string | number | null | undefined) => String(value ?
 export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [projectList, setProjectList] = useState<Project[]>(initialProjects);
   const [clients, setClients] = useState<ClientOption[]>(initialClients);
+  const [leaders, setLeaders] = useState<{ id: string; name: string }[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
@@ -117,6 +122,7 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
 
   useEffect(() => {
     void projectsService.getAll().then((loaded) => setProjectList(loaded.map((project) => ({ ...project, clientId: project.client, budget: String(project.budget), lead: '' })))).catch(() => showToast('Unable to load projects from the server', 'error'));
+    void adminService.getAllUsers(1, 100).then((response) => setLeaders((response.data || []).map((user: { id: number | string; user_name: string }) => ({ id: String(user.id), name: user.user_name })))).catch(() => setLeaders([]));
     if (authService.hasPermission('Clients')) {
       void clientsService.getAll().then((loaded) => setClients(loaded.map((client) => ({ id: client.id, name: client.name })))).catch((error) => {
         if (error && typeof error === 'object' && 'status' in error && error.status === 403) return;
@@ -124,6 +130,14 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
       });
     }
   }, [showToast]);
+
+  useEffect(() => {
+    if (!leaders.length) return;
+    setProjectList((current) => current.map((project) => ({
+      ...project,
+      lead: project.leaderId ? leaders.find((leader) => leader.id === project.leaderId)?.name || project.lead : project.lead,
+    })));
+  }, [leaders]);
 
   const filteredProjects = useMemo(() => {
     if (!searchQuery.trim()) return projectList;
@@ -172,6 +186,7 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
     }
 
     const generatedAt = new Date().toLocaleString();
+    const reportLogo = localStorage.getItem('mg_theme') === 'dark' ? darkLogoImg : logoImg;
     const projectRows = projects.map((project) => `
       <article class="project">
         <div class="project-heading">
@@ -211,7 +226,7 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
         .summary p { color: #525252; }
         footer { margin-top: 8mm; padding-top: 4mm; border-top: 1px solid #e5e5e5; color: #737373; font-size: 9px; }
         @media print { body { background: #fff; } }
-      </style></head><body><img class="watermark" src="${logoImg}" alt="" />
+      </style></head><body><img class="watermark" src="${reportLogo}" alt="" />
         <header><div><h1>Project Portfolio Report</h1><p class="muted">Makezy Group management system</p></div><div class="meta"><div><strong>${projects.length}</strong> project${projects.length === 1 ? '' : 's'}</div><div>Generated ${escapeHtml(generatedAt)}</div></div></header>
         <p class="intro">Complete project overview including budgets, ownership, progress, timelines, and summaries.</p>
         ${projectRows}
@@ -232,7 +247,7 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
       return;
     }
 
-    const request = { id: formProject.id, name: formProject.name, description: formProject.description, client: formProject.clientId, status: formProject.status === 'In Progress' || formProject.status === 'Review' ? 'Planning' as const : formProject.status, startDate: formProject.startDate, endDate: formProject.endDate, budget: Number(formProject.budget.replace(/[^0-9.-]+/g, '')) || 0, progress: formProject.progress };
+    const request = { id: formProject.id, name: formProject.name, description: formProject.description, client: formProject.clientId, status: formProject.status, startDate: formProject.startDate, endDate: formProject.endDate, budget: Number(formProject.budget.replace(/[^0-9.-]+/g, '')) || 0, progress: formProject.progress, projectLeader: formProject.leaderId || undefined };
     const saveRequest = formMode === 'add' ? projectsService.create(request) : projectsService.update(formProject.id, request);
     void saveRequest.then((saved) => {
       const pageProject = { ...formProject, id: saved.id, clientId: saved.client, budget: String(saved.budget) };
@@ -495,12 +510,17 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
                 Project leader
-                <input
-                  value={formProject.lead}
-                  onChange={(event) => handleFormChange('lead', event.target.value)}
+                <select
+                  value={formProject.leaderId || ''}
+                  onChange={(event) => {
+                    const leader = leaders.find((item) => item.id === event.target.value);
+                    setFormProject((current) => ({ ...current, leaderId: event.target.value, lead: leader?.name || '' }));
+                  }}
                   className="w-full rounded-3xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
-                  placeholder="Team lead name"
-                />
+                >
+                  <option value="">Select team lead</option>
+                  {leaders.map((leader) => <option key={leader.id} value={leader.id}>{leader.name}</option>)}
+                </select>
               </label>
               <label className="space-y-2 text-sm font-medium text-neutral-700">
                 Start date

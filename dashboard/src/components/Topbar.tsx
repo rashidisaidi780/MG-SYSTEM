@@ -1,4 +1,4 @@
-import { Search, Bell, RefreshCcw } from 'lucide-react';
+import { Search, Bell, RefreshCcw, Moon, Sun } from 'lucide-react';
 import type { PageId } from '@/components/Sidebar';
 
 interface TopbarProps {
@@ -9,9 +9,11 @@ interface TopbarProps {
   isLoading?: boolean;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
+  isDarkMode: boolean;
+  onToggleDarkMode: () => void;
 }
 
-export default function Topbar({ title, subtitle, onNavigate, onRefresh, isLoading, searchQuery = '', onSearchChange }: TopbarProps) {
+export default function Topbar({ title, subtitle, onNavigate, onRefresh, isLoading, searchQuery = '', onSearchChange, isDarkMode, onToggleDarkMode }: TopbarProps) {
   return (
     <header className="h-16 border-b border-neutral-200 bg-white sticky top-0 z-10 flex items-center justify-between px-8">
       <div>
@@ -28,6 +30,15 @@ export default function Topbar({ title, subtitle, onNavigate, onRefresh, isLoadi
             className="bg-transparent text-sm outline-none w-full placeholder:text-neutral-400"
           />
         </div>
+        <button
+          type="button"
+          onClick={onToggleDarkMode}
+          className="rounded-lg p-2 transition-colors hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {isDarkMode ? <Sun size={18} className="text-amber-300" /> : <Moon size={18} className="text-neutral-600" />}
+        </button>
         <button
           type="button"
           onClick={() => (onRefresh ? onRefresh() : window.location.reload())}

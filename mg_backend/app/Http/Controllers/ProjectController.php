@@ -8,9 +8,10 @@ use Illuminate\Http\Request;
 class ProjectController extends Controller
 {
    
-    public function index()
+    public function index(Request $request)
     {
-        $projects = Project::latest()->paginate(10);
+        $limit = min(max($request->integer('limit', 10), 1), 100);
+        $projects = Project::latest()->paginate($limit);
 
         return response()->json([
             'success' => true,
@@ -28,7 +29,7 @@ class ProjectController extends Controller
             'project_budget' => 'required|numeric|min:0',
             'project_status' => 'required|string|max:50',
             'project_progress' => 'sometimes|integer|min:0|max:100',
-            'project_leader' => 'nullable|exists:users,id',
+            'project_leader' => 'nullable|integer|exists:users,id',
             'project_start_date' => 'required|date',
             'project_end_date' => 'nullable|date|after_or_equal:project_start_date',
             'project_details' => 'nullable|string',
@@ -63,7 +64,7 @@ class ProjectController extends Controller
             'project_budget' => 'required|numeric|min:0',
             'project_status' => 'required|string|max:50',
             'project_progress' => 'sometimes|integer|min:0|max:100',
-            'project_leader' => 'nullable|exists:users,id',
+            'project_leader' => 'nullable|integer|exists:users,id',
             'project_start_date' => 'required|date',
             'project_end_date' => 'nullable|date|after_or_equal:project_start_date',
             'project_details' => 'nullable|string',

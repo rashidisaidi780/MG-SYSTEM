@@ -8,6 +8,7 @@ export interface UpdatePost {
   isNew: boolean;
   createdAt: string;
   durationDays: number;
+  expiresAt: string;
 }
 
 interface UpdateApiRecord {
@@ -20,6 +21,7 @@ interface UpdateApiRecord {
   update_duration: number | null;
   update_status: string;
   is_new: boolean;
+  created_at: string;
 }
 
 interface UpdateApiResponse {
@@ -32,8 +34,9 @@ const toUpdate = (record: UpdateApiRecord): UpdatePost => ({
   description: record.update_description,
   image: record.update_image,
   isNew: record.is_new,
-  createdAt: record.update_date,
+  createdAt: record.created_at || record.update_date,
   durationDays: record.update_duration ?? 1,
+  expiresAt: new Date(new Date(record.created_at || record.update_date).getTime() + (record.update_duration ?? 1) * 86400000).toISOString(),
 });
 
 class UpdatesService {
@@ -42,7 +45,7 @@ class UpdatesService {
     return response.data.map(toUpdate);
   }
 
-  async create(data: Omit<UpdatePost, 'id' | 'createdAt'>): Promise<UpdatePost> {
+  async create(data: Omit<UpdatePost, 'id' | 'createdAt' | 'expiresAt'>): Promise<UpdatePost> {
     const response = await apiClient.post<{ data: UpdateApiRecord }>('/updates', {
       update_id: `UPD-${Date.now()}`,
       update_title: data.title,

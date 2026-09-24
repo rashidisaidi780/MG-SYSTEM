@@ -16,6 +16,7 @@ export interface Project {
   progress: number;
   spent: number;
   team: string[];
+  leaderId?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -30,6 +31,7 @@ interface ProjectApiRecord {
   project_end_date: string | null;
   project_details: string | null;
   client_id: number | string;
+  project_leader: number | string | null;
 }
 
 export interface CreateProjectRequest {
@@ -42,6 +44,7 @@ export interface CreateProjectRequest {
   endDate: string;
   budget: number;
   team?: string[];
+  projectLeader?: string;
 }
 
 export interface UpdateProjectRequest {
@@ -55,6 +58,7 @@ export interface UpdateProjectRequest {
   budget?: number;
   spent?: number;
   team?: string[];
+  projectLeader?: string;
 }
 
 class ProjectsService {
@@ -107,12 +111,12 @@ export default projectsService;
 
 const toProject = (project: ProjectApiRecord): Project => ({
   id: String(project.id), name: project.project_name, description: project.project_details ?? '', client: String(project.client_id),
-  status: project.project_status.toLowerCase() === 'completed' ? 'Completed' : project.project_status.toLowerCase() === 'on hold' ? 'On Hold' : project.project_status.toLowerCase() === 'in progress' ? 'In Progress' : 'Planning',
-  startDate: project.project_start_date, endDate: project.project_end_date ?? '', budget: Number(project.project_budget), progress: project.project_progress ?? 0, spent: 0, team: [],
+  status: project.project_status.toLowerCase() === 'completed' ? 'Completed' : project.project_status.toLowerCase() === 'on hold' ? 'On Hold' : project.project_status.toLowerCase() === 'in progress' ? 'In Progress' : project.project_status.toLowerCase() === 'review' ? 'Review' : 'Planning',
+  startDate: project.project_start_date, endDate: project.project_end_date ?? '', budget: Number(project.project_budget), progress: project.project_progress ?? 0, spent: 0, team: [], leaderId: project.project_leader ? String(project.project_leader) : undefined,
 });
 
 const toProjectPayload = (project: CreateProjectRequest | UpdateProjectRequest, includeProjectId: boolean) => ({
-  ...(includeProjectId ? { project_id: Number(project.id) || Date.now() } : {}),
+  ...(includeProjectId && project.id ? { project_id: Number(project.id) } : {}),
   ...(project.name !== undefined ? { project_name: project.name } : {}),
   ...(project.description !== undefined ? { project_details: project.description } : {}),
   ...(project.client !== undefined ? { client_id: Number(project.client) } : {}),
@@ -121,4 +125,5 @@ const toProjectPayload = (project: CreateProjectRequest | UpdateProjectRequest, 
   ...(project.endDate !== undefined ? { project_end_date: project.endDate || null } : {}),
   ...(project.budget !== undefined ? { project_budget: project.budget } : {}),
   ...('progress' in project && project.progress !== undefined ? { project_progress: project.progress } : {}),
+  ...(project.projectLeader !== undefined ? { project_leader: project.projectLeader ? Number(project.projectLeader) : null } : {}),
 });

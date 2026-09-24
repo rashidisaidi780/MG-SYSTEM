@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { FileText, FolderKanban, Users, ClipboardList, Activity, AlertTriangle } from 'lucide-react';
 import { SYSTEM_ACTIVITIES_STORAGE_KEY, type SystemActivity } from '@/utils/systemNotifications';
 import invoicesService from '@/services/invoices';
-import projectsService from '@/services/projects';
+import projectsService, { type Project } from '@/services/projects';
+import workersService from '@/services/workers';
 import bookingsService from '@/services/bookings';
 import officeOrdersService from '@/services/officeOrders';
 import { authService } from '@/services/auth';
@@ -19,6 +20,8 @@ const readCount = (key: string) => {
 export default function DashboardPage() {
   const [invoiceCount, setInvoiceCount] = useState(0);
   const [projectCount, setProjectCount] = useState(0);
+  const [projectDeadlines, setProjectDeadlines] = useState<Project[]>([]);
+  const [contractDeadlines, setContractDeadlines] = useState<{ name: string; date: string }[]>([]);
   const [orderCount, setOrderCount] = useState(0);
   const [activities, setActivities] = useState<SystemActivity[]>(() => {
     try {
@@ -41,6 +44,19 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    if (!authService.hasPermission('Workers')) return;
+
+    void workersService.getAll({ limit: 100 })
+      .then((workers) => setContractDeadlines(workers
+        .filter((worker) => worker.contractEndDate)
+        .map((worker) => ({ name: worker.name, date: worker.contractEndDate || '' }))))
+      .catch((error) => {
+        if (error && typeof error === 'object' && 'status' in error && error.status === 403) return;
+        setContractDeadlines([]);
+      });
+  }, []);
+
+  useEffect(() => {
     void invoicesService.getAll()
       .then((invoices) => setInvoiceCount(invoices.length))
       .catch(() => setInvoiceCount(0));
@@ -54,6 +70,13 @@ export default function DashboardPage() {
       .catch((error) => {
         if (error && typeof error === 'object' && 'status' in error && error.status === 403) return;
         setProjectCount(0);
+      });
+
+    void projectsService.getAll({ limit: 100 })
+      .then(setProjectDeadlines)
+      .catch((error) => {
+        if (error && typeof error === 'object' && 'status' in error && error.status === 403) return;
+        setProjectDeadlines([]);
       });
   }, []);
 
@@ -73,17 +96,24 @@ export default function DashboardPage() {
   const projects = projectCount;
   const clients = readCount('clients');
   const orders = orderCount;
+  const canViewInvoices = authService.hasPermission('Invoices');
+  const canViewProjects = authService.hasPermission('Projects');
+  const canViewBookings = authService.hasPermission('Booking Orders');
+  const canViewOfficeOrders = authService.hasPermission('Office Orders');
+  const canViewWorkers = authService.hasPermission('Workers');
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const thirtyDaysFromNow = new Date(today);
   thirtyDaysFromNow.setDate(today.getDate() + 30);
   const expiringItems = [
-    ...readRecords('invoices').map((item) => ({ type: 'Invoice', description: `${item.id || 'Invoice'} payment`, date: item.dueRaw || item.due })),
-    ...readRecords('projects').map((item) => ({ type: 'Project', description: `${item.name || 'Project'} deadline`, date: item.endDate })),
-    ...readRecords('bookings').map((item) => ({ type: 'Booking', description: `${item.id || 'Booking'} appointment`, date: item.date })),
-    ...readRecords('office-orders').map((item) => ({ type: 'Office order', description: `${item.id || 'Office order'} due`, date: item.date })),
-    ...readRecords('workers').map((item) => ({ type: 'Worker', description: `${item.name || 'Worker'} contract`, date: item.contractEndDate })),
+    ...(canViewInvoices ? readRecords('invoices').map((item) => ({ type: 'Invoice', description: `${item.id || 'Invoice'} payment`, date: item.dueRaw || item.due })) : []),
+    ...(canViewProjects ? projectDeadlines.map((project) => ({ type: 'Project', description: `${project.name} deadline`, date: project.endDate })) : []),
+    ...(canViewBookings ? readRecords('bookings').map((item) => ({ type: 'Booking', description: `${item.id || 'Booking'} appointment`, date: item.date })) : []),
+    ...(canViewOfficeOrders ? readRecords('office-orders').map((item) => ({ type: 'Office order', description: `${item.id || 'Office order'} due`, date: item.date })) : []),
+    ...(canViewWorkers ? contractDeadlines.map((worker) => ({ type: 'Contract', description: `${worker.name} contract`, date: worker.date })) : []),
   ].filter((item) => {
     const date = new Date(item.date);
+    date.setHours(0, 0, 0, 0);
     return item.date && !Number.isNaN(date.getTime()) && date <= thirtyDaysFromNow;
   }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const stats = [
