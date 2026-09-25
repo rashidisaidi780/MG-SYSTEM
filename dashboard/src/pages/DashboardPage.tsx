@@ -139,7 +139,7 @@ export default function DashboardPage() {
 
   return (
     <div className="p-8 space-y-6 animate-fade-in">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {stats.map(({ label, value, icon: Icon }) => (
           <div key={label} className="rounded-xl border border-neutral-200 bg-white p-5">
             <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-100">
@@ -168,13 +168,13 @@ export default function DashboardPage() {
             </div>
           ) : <p className="text-sm text-neutral-500">No activities have been recorded yet.</p>}
         </section>
-        <section className="rounded-xl border border-neutral-200 bg-white p-6">
+        <section className="flex h-[28rem] min-h-0 flex-col rounded-xl border border-neutral-200 bg-white p-6 lg:h-auto lg:block">
           <div className="mb-4 flex items-center gap-2">
             <AlertTriangle size={18} />
             <h2 className="text-lg font-semibold">Expired or due in 30 days</h2>
           </div>
           {expiringItems.length ? (
-            <div className="overflow-x-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-auto lg:block lg:flex-none">
               <table className="w-full text-left text-sm">
                 <thead><tr className="border-b border-neutral-200 text-xs uppercase tracking-wide text-neutral-400"><th className="pb-3 pr-3">Type</th><th className="pb-3 pr-3">Description</th><th className="pb-3">Due date</th></tr></thead>
                 <tbody>{expiringItems.map((item, index) => { const date = new Date(item.date); const expired = date < today; return <tr key={`${item.type}-${item.description}-${index}`} className="border-b border-neutral-100 last:border-0"><td className="py-3 pr-3 font-medium">{item.type}</td><td className="py-3 pr-3 text-neutral-600">{item.description}</td><td className={`py-3 whitespace-nowrap ${expired ? 'font-semibold text-red-600' : 'text-neutral-600'}`}>{expired ? 'Expired' : 'Due'} {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td></tr>; })}</tbody>

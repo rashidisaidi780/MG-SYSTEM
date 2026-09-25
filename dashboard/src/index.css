@@ -15,6 +15,7 @@ body {
   margin: 0;
   background-color: #ffffff;
   color: #000000;
+  overflow-x: hidden;
 }
 
 html.dark body {
@@ -52,6 +53,22 @@ html.dark .focus\:border-black:focus { border-color: #f4c430; }
 html.dark .focus\:ring-black\/10:focus { --tw-ring-color: rgb(244 196 48 / 0.1); }
 html.dark .border-black { border-color: #f4c430; }
 html.dark .accent-black { accent-color: #f4c430; }
+
+@media (max-width: 640px) {
+  .p-8 { padding: 1rem !important; }
+  .p-6 { padding: 1rem !important; }
+  .p-5 { padding: 0.875rem !important; }
+  .px-8 { padding-left: 1rem !important; padding-right: 1rem !important; }
+  .py-10 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
+  .rounded-\[32px\] { border-radius: 1.25rem !important; }
+  .rounded-\[30px\] { border-radius: 1.25rem !important; }
+  .rounded-\[28px\] { border-radius: 1rem !important; }
+  .text-3xl { font-size: 1.5rem !important; line-height: 2rem !important; }
+  .text-2xl { font-size: 1.25rem !important; line-height: 1.75rem !important; }
+  .text-xl { font-size: 1.125rem !important; line-height: 1.5rem !important; }
+  main { min-width: 0; }
+  table { min-width: 640px; }
+}
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {

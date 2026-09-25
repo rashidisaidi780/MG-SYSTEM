@@ -55,6 +55,7 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem(THEME_KEY) === 'dark');
   const meta = pageMeta[page];
 
@@ -203,12 +204,14 @@ export default function App() {
         <div className="min-h-screen bg-white flex">
         <Sidebar
           active={page}
-          onNavigate={navigateToPage}
+          onNavigate={(nextPage) => { navigateToPage(nextPage); setMobileMenuOpen(false); }}
           onLogoutRequest={() => setLogoutConfirmOpen(true)}
           currentUser={currentUser || undefined}
+          mobileOpen={mobileMenuOpen}
+          onMobileClose={() => setMobileMenuOpen(false)}
         />
         <main className="flex-1 min-w-0">
-          <Topbar title={meta.title} subtitle={meta.subtitle} onNavigate={navigateToPage} onRefresh={handleRefresh} isLoading={isLoading} searchQuery={searchQuery} onSearchChange={setSearchQuery} isDarkMode={isDarkMode} onToggleDarkMode={() => setIsDarkMode((current) => !current)} />
+          <Topbar title={meta.title} subtitle={meta.subtitle} onNavigate={navigateToPage} onRefresh={handleRefresh} isLoading={isLoading} searchQuery={searchQuery} onSearchChange={setSearchQuery} isDarkMode={isDarkMode} onToggleDarkMode={() => setIsDarkMode((current) => !current)} onOpenMenu={() => setMobileMenuOpen(true)} />
           <div key={`${page}-${refreshKey}`} onClickCapture={blockReadOnlyMutation} className="min-h-[calc(100vh-4rem)] animate-book-page">
             {page === 'dashboard' && <DashboardPage />}
             {page === 'events' && <EventsPage searchQuery={searchQuery} />}

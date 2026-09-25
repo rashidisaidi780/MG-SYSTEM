@@ -35,6 +35,8 @@ interface SidebarProps {
   active: PageId;
   onNavigate: (page: PageId) => void;
   onLogoutRequest?: () => void;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
   currentUser?: {
     username?: string;
     email?: string;
@@ -86,7 +88,7 @@ const NAV: NavGroup[] = [
   },
 ];
 
-export default function Sidebar({ active, onNavigate, onLogoutRequest, currentUser }: SidebarProps) {
+export default function Sidebar({ active, onNavigate, onLogoutRequest, currentUser, mobileOpen = false, onMobileClose }: SidebarProps) {
   const permissionFor = (pageId: PageId) => {
     if (currentUser?.role === 'Admin' || (Array.isArray(currentUser?.permissions) && currentUser.permissions.includes('*'))) return 'Both';
     const areaByPage: Partial<Record<PageId, string>> = {
@@ -120,8 +122,15 @@ export default function Sidebar({ active, onNavigate, onLogoutRequest, currentUs
   const toggle = (label: string) =>
     setOpenGroups((s) => ({ ...s, [label]: !s[label] }));
 
+  const handleNavigate = (page: PageId) => {
+    onNavigate(page);
+    onMobileClose?.();
+  };
+
   return (
-    <aside className="w-64 shrink-0 border-r border-neutral-200 bg-white flex flex-col h-screen sticky top-0">
+    <>
+      {mobileOpen ? <button type="button" aria-label="Close navigation" onClick={onMobileClose} className="fixed inset-0 z-40 bg-black/45 md:hidden" /> : null}
+      <aside className={`fixed inset-y-0 left-0 z-50 flex w-72 shrink-0 flex-col border-r border-neutral-200 bg-white shadow-2xl transition-transform duration-200 md:sticky md:top-0 md:z-auto md:h-screen md:w-64 md:translate-x-0 md:shadow-none ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
       {/* Brand */}
       <div className="h-16 flex items-center gap-3 px-6 border-b border-neutral-200">
         <img src={logoImg} alt="Logo" className="w-9 h-9 rounded-lg object-cover dark:hidden" />
@@ -142,7 +151,7 @@ export default function Sidebar({ active, onNavigate, onLogoutRequest, currentUs
             return (
               <button
                 key={group.label}
-                onClick={() => onNavigate(group.id!)}
+                onClick={() => handleNavigate(group.id!)}
                 disabled={permissionFor(group.id!) === 'None'}
                 title={permissionFor(group.id!) === 'None' ? 'No access assigned' : group.label}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium mb-0.5 transition-colors ${
@@ -181,7 +190,7 @@ export default function Sidebar({ active, onNavigate, onLogoutRequest, currentUs
                     <button
                       key={child.id}
                       onClick={() => {
-                        if (permissionFor(child.id) !== 'None') onNavigate(child.id);
+                        if (permissionFor(child.id) !== 'None') handleNavigate(child.id);
                       }}
                       disabled={permissionFor(child.id) === 'None'}
                       title={permissionFor(child.id) === 'None' ? 'No access assigned' : child.label}
@@ -216,7 +225,7 @@ export default function Sidebar({ active, onNavigate, onLogoutRequest, currentUs
         </div>
         <div className="mt-3">
           <button
-            onClick={() => onLogoutRequest?.()}
+            onClick={() => { onMobileClose?.(); onLogoutRequest?.(); }}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 mt-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
           >
             <LogOut size={16} />
@@ -224,6 +233,7 @@ export default function Sidebar({ active, onNavigate, onLogoutRequest, currentUs
           </button>
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }
