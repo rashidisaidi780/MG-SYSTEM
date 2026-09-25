@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FileText, FolderKanban, Users, ClipboardList, Activity, AlertTriangle } from 'lucide-react';
 import { SYSTEM_ACTIVITIES_STORAGE_KEY, type SystemActivity } from '@/utils/systemNotifications';
-import invoicesService from '@/services/invoices';
+import invoicesService, { type Invoice } from '@/services/invoices';
 import projectsService, { type Project } from '@/services/projects';
 import workersService from '@/services/workers';
 import bookingsService from '@/services/bookings';
@@ -19,6 +19,7 @@ const readCount = (key: string) => {
 
 export default function DashboardPage() {
   const [invoiceCount, setInvoiceCount] = useState(0);
+  const [invoiceDeadlines, setInvoiceDeadlines] = useState<Invoice[]>([]);
   const [projectCount, setProjectCount] = useState(0);
   const [projectDeadlines, setProjectDeadlines] = useState<Project[]>([]);
   const [contractDeadlines, setContractDeadlines] = useState<{ name: string; date: string }[]>([]);
@@ -57,9 +58,18 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    if (!authService.hasPermission('Invoices')) return;
+
     void invoicesService.getAll()
-      .then((invoices) => setInvoiceCount(invoices.length))
-      .catch(() => setInvoiceCount(0));
+      .then((invoices) => {
+        setInvoiceCount(invoices.length);
+        setInvoiceDeadlines(invoices);
+      })
+      .catch((error) => {
+        if (error && typeof error === 'object' && 'status' in error && error.status === 403) return;
+        setInvoiceCount(0);
+        setInvoiceDeadlines([]);
+      });
   }, []);
 
   useEffect(() => {
@@ -106,8 +116,12 @@ export default function DashboardPage() {
   const thirtyDaysFromNow = new Date(today);
   thirtyDaysFromNow.setDate(today.getDate() + 30);
   const expiringItems = [
-    ...(canViewInvoices ? readRecords('invoices').map((item) => ({ type: 'Invoice', description: `${item.id || 'Invoice'} payment`, date: item.dueRaw || item.due })) : []),
-    ...(canViewProjects ? projectDeadlines.map((project) => ({ type: 'Project', description: `${project.name} deadline`, date: project.endDate })) : []),
+    ...(canViewInvoices ? invoiceDeadlines
+      .filter((invoice) => invoice.status !== 'Paid' && invoice.status !== 'Canceled')
+      .map((invoice) => ({ type: 'Invoice', description: `${invoice.id || 'Invoice'} payment`, date: invoice.dueRaw || '' })) : []),
+    ...(canViewProjects ? projectDeadlines
+      .filter((project) => project.progress < 100)
+      .map((project) => ({ type: 'Project', description: `${project.name} deadline`, date: project.endDate })) : []),
     ...(canViewBookings ? readRecords('bookings').map((item) => ({ type: 'Booking', description: `${item.id || 'Booking'} appointment`, date: item.date })) : []),
     ...(canViewOfficeOrders ? readRecords('office-orders').map((item) => ({ type: 'Office order', description: `${item.id || 'Office order'} due`, date: item.date })) : []),
     ...(canViewWorkers ? contractDeadlines.map((worker) => ({ type: 'Contract', description: `${worker.name} contract`, date: worker.date })) : []),

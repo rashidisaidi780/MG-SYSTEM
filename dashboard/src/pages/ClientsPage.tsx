@@ -38,7 +38,7 @@ const emptyClient: Client = {
   date: '',
 };
 
-const toPageClient = (client: ServiceClient, otherPhone = ''): Client => ({
+const toPageClient = (client: ServiceClient, otherPhone = client.otherPhone): Client => ({
   ...client,
   otherPhone,
   tinNumber: client.tin,

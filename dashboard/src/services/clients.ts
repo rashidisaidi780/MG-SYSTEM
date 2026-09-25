@@ -9,6 +9,7 @@ export interface Client {
   name: string;
   email: string;
   phone: string;
+  otherPhone: string;
   company: string;
   tin: string;
   address: string;
@@ -77,6 +78,7 @@ const toClient = (client: ClientApiRecord): Client => ({
   country: client.client_country ?? '',
   status: client.client_status.toLowerCase() === 'inactive' ? 'Inactive' : client.client_status.toLowerCase() === 'pending' ? 'Pending' : 'Active',
   date: client.client_date_added ?? client.created_at?.slice(0, 10) ?? '',
+  otherPhone: client.client_otherphone ?? '',
   createdAt: client.created_at,
   updatedAt: client.updated_at,
 });

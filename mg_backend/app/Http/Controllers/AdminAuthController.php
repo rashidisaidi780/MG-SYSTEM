@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Admin;
 use App\Models\User;
+use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class AdminAuthController extends Controller
@@ -208,7 +210,11 @@ class AdminAuthController extends Controller
             ], 404);
         }
 
-        $user->delete();
+        // Keep projects when their assigned leader is removed; the leader can be reassigned later.
+        DB::transaction(function () use ($user) {
+            Project::where('project_leader', $user->id)->update(['project_leader' => null]);
+            $user->delete();
+        });
 
         return response()->json([
             'success' => true,

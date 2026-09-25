@@ -342,7 +342,12 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
       }
       setPendingDeleteUserId(null);
       void loadUsers();
-    }).catch(() => showToast('Unable to delete user from the server', 'error'));
+    }).catch((error) => {
+      const details = error && typeof error === 'object' && 'details' in error
+        ? (error as { details?: { message?: string } }).details?.message
+        : undefined;
+      showToast(details || 'Unable to delete user from the server', 'error');
+    });
   };
 
   return (

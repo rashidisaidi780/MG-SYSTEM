@@ -203,7 +203,7 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
       </article>`).join('');
 
     reportWindow.document.write(`<!doctype html>
-      <html><head><title>Project Portfolio Report</title><style>
+      <html><head><title>Project Report</title><style>
         @page { size: A4; margin: 14mm; }
         * { box-sizing: border-box; }
         body { position: relative; margin: 0; color: #171717; font-family: Arial, Helvetica, sans-serif; background: #fff; }
@@ -227,7 +227,7 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
         footer { margin-top: 8mm; padding-top: 4mm; border-top: 1px solid #e5e5e5; color: #737373; font-size: 9px; }
         @media print { body { background: #fff; } }
       </style></head><body><img class="watermark" src="${reportLogo}" alt="" />
-        <header><div><h1>Project Portfolio Report</h1><p class="muted">Makezy Group management system</p></div><div class="meta"><div><strong>${projects.length}</strong> project${projects.length === 1 ? '' : 's'}</div><div>Generated ${escapeHtml(generatedAt)}</div></div></header>
+        <header><div><h1>Project Report</h1><p class="muted">Makezy Group management system</p></div><div class="meta"><div><strong>${projects.length}</strong> project${projects.length === 1 ? '' : 's'}</div><div>Generated ${escapeHtml(generatedAt)}</div></div></header>
         <p class="intro">Complete project overview including budgets, ownership, progress, timelines, and summaries.</p>
         ${projectRows}
         <footer>Generated from the Makezy Group project portfolio.</footer>
