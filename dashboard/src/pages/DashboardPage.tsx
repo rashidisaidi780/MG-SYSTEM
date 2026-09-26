@@ -6,19 +6,12 @@ import projectsService, { type Project } from '@/services/projects';
 import workersService from '@/services/workers';
 import bookingsService from '@/services/bookings';
 import officeOrdersService from '@/services/officeOrders';
+import clientsService from '@/services/clients';
 import { authService } from '@/services/auth';
-
-const readCount = (key: string) => {
-  try {
-    const value = localStorage.getItem(`mg_${key}`);
-    return value ? (JSON.parse(value) as unknown[]).length : 0;
-  } catch {
-    return 0;
-  }
-};
 
 export default function DashboardPage() {
   const [invoiceCount, setInvoiceCount] = useState(0);
+  const [clientCount, setClientCount] = useState(0);
   const [invoiceDeadlines, setInvoiceDeadlines] = useState<Invoice[]>([]);
   const [projectCount, setProjectCount] = useState(0);
   const [projectDeadlines, setProjectDeadlines] = useState<Project[]>([]);
@@ -55,6 +48,14 @@ export default function DashboardPage() {
         if (error && typeof error === 'object' && 'status' in error && error.status === 403) return;
         setContractDeadlines([]);
       });
+  }, []);
+
+  useEffect(() => {
+    if (!authService.hasPermission('Clients')) return;
+
+    void clientsService.getAll()
+      .then((clients) => setClientCount(clients.length))
+      .catch(() => setClientCount(0));
   }, []);
 
   useEffect(() => {
@@ -104,7 +105,6 @@ export default function DashboardPage() {
   }, []);
 
   const projects = projectCount;
-  const clients = readCount('clients');
   const orders = orderCount;
   const canViewInvoices = authService.hasPermission('Invoices');
   const canViewProjects = authService.hasPermission('Projects');
@@ -133,7 +133,7 @@ export default function DashboardPage() {
   const stats = [
     { label: 'Invoices', value: invoiceCount, icon: FileText },
     { label: 'Projects', value: projects, icon: FolderKanban },
-    { label: 'Clients', value: clients, icon: Users },
+    { label: 'Clients', value: clientCount, icon: Users },
     { label: 'Orders', value: orders, icon: ClipboardList },
   ];
 

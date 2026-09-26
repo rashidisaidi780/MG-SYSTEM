@@ -4,7 +4,6 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import logoImg from '@/assets/logo.jpeg';
-import darkLogoImg from '@/assets/Makezy_logo.jpeg';
 import invoicesService, { type Invoice as ServiceInvoice } from '@/services/invoices';
 import clientsService, { type Client as ServiceClient } from '@/services/clients';
 import { authService } from '@/services/auth';
@@ -254,7 +253,6 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
       showToast('Please allow pop-ups to download the invoice as a PDF.', 'warning');
       return;
     }
-    const reportLogo = localStorage.getItem('mg_theme') === 'dark' ? darkLogoImg : logoImg;
 
     invoiceWindow.document.write(`<!doctype html>
       <html><head><title>${escapeHtml(inv.id)} - Invoice</title>
@@ -297,10 +295,10 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
         .footer { position: absolute; bottom: 11mm; left: 14mm; right: 14mm; display: flex; justify-content: space-between; padding-top: 6px; border-top: 1px solid #e5e5e5; font-size: 8px; color: #737373; }
         @media print { body { background: #fff; } .page { margin: 0; } }
       </style></head><body><main class="page">
-        <img class="watermark" src="${reportLogo}" alt="" />
+        <img class="watermark" src="${logoImg}" alt="" />
         <div class="content">
           <header class="header">
-            <div class="brand"><img src="${reportLogo}" alt="${escapeHtml(companyProfile.name)} logo" /><div><h2 class="brand-name">${escapeHtml(companyProfile.name)}</h2><p class="small muted">${escapeHtml(companyProfile.location)}</p></div></div>
+            <div class="brand"><img src="${logoImg}" alt="${escapeHtml(companyProfile.name)} logo" /><div><h2 class="brand-name">${escapeHtml(companyProfile.name)}</h2><p class="small muted">${escapeHtml(companyProfile.location)}</p></div></div>
             <div class="title"><h1>INVOICE</h1><p><strong>${escapeHtml(inv.id)}</strong></p><p class="muted">${escapeHtml(inv.status)}</p></div>
           </header>
           <section class="meta">

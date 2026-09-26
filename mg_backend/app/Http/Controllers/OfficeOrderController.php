@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Office_order;
 use App\Models\Department;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class OfficeOrderController extends Controller
@@ -30,8 +31,6 @@ class OfficeOrderController extends Controller
         }
 
         $validated = $request->validate([
-            'order_id' => 'sometimes|string|max:255|unique:orders,order_id',
-
             'department_id' => 'nullable|exists:departments,id',
 
             'order_subject' => 'required|string|max:255',
@@ -47,8 +46,13 @@ class OfficeOrderController extends Controller
             'order_notes' => 'nullable|string',
         ]);
 
-        $validated['order_id'] ??= 'OO-' . Str::upper(Str::random(12));
-        $order = Office_order::create($validated);
+        $validated['order_id'] = 'pending-' . Str::uuid();
+        $order = DB::transaction(function () use ($validated) {
+            $order = Office_order::create($validated);
+            $order->update(['order_id' => sprintf('OO-%04d', $order->id)]);
+
+            return $order;
+        });
 
         return response()->json([
             'success' => true,

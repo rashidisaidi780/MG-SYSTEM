@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Service;
 use App\Models\Client;
 use App\Models\Worker;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class BookingController extends Controller
@@ -42,8 +43,6 @@ class BookingController extends Controller
         }
 
         $validated = $request->validate([
-            'booking_id' => 'sometimes|string|max:255|unique:bookings,booking_id',
-
             'client_id' => 'required|exists:clients,id',
 
             'service_id' => 'required|exists:services,id',
@@ -59,8 +58,13 @@ class BookingController extends Controller
             'booking_notes' => 'nullable|string',
         ]);
 
-        $validated['booking_id'] ??= 'BO-' . Str::upper(Str::random(12));
-        $booking = Booking::create($validated);
+        $validated['booking_id'] = 'pending-' . Str::uuid();
+        $booking = DB::transaction(function () use ($validated) {
+            $booking = Booking::create($validated);
+            $booking->update(['booking_id' => sprintf('BO-%04d', $booking->id)]);
+
+            return $booking;
+        });
 
         return response()->json([
             'success' => true,

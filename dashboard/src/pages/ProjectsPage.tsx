@@ -4,7 +4,6 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import logoImg from '@/assets/logo.jpeg';
-import darkLogoImg from '@/assets/Makezy_logo.jpeg';
 import projectsService from '@/services/projects';
 import clientsService from '@/services/clients';
 import { adminService } from '@/services/admin';
@@ -222,7 +221,6 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
     }
 
     const generatedAt = new Date().toLocaleString();
-    const reportLogo = localStorage.getItem('mg_theme') === 'dark' ? darkLogoImg : logoImg;
     const projectRows = projects.map((project) => `
       <article class="project">
         <div class="project-heading">
@@ -262,7 +260,7 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
         .summary p { color: #525252; }
         footer { margin-top: 8mm; padding-top: 4mm; border-top: 1px solid #e5e5e5; color: #737373; font-size: 9px; }
         @media print { body { background: #fff; } }
-      </style></head><body><img class="watermark" src="${reportLogo}" alt="" />
+      </style></head><body><img class="watermark" src="${logoImg}" alt="" />
         <header><div><h1>Project Report</h1><p class="muted">Makezy Group management system</p></div><div class="meta"><div><strong>${projects.length}</strong> project${projects.length === 1 ? '' : 's'}</div><div>Generated ${escapeHtml(generatedAt)}</div></div></header>
         <p class="intro">Complete project overview including budgets, ownership, progress, timelines, and summaries.</p>
         ${projectRows}

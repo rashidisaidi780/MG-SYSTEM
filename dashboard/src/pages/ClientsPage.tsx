@@ -4,7 +4,6 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import logoImg from '@/assets/logo.jpeg';
-import darkLogoImg from '@/assets/Makezy_logo.jpeg';
 import clientsService, { type Client as ServiceClient } from '@/services/clients';
 import { authService } from '@/services/auth';
 
@@ -130,7 +129,6 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
       ? new Date(client.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
       : 'Not provided';
 
-    const reportLogo = localStorage.getItem('mg_theme') === 'dark' ? darkLogoImg : logoImg;
     reportWindow.document.write(`<!doctype html>
       <html><head><title>${escapeHtml(client.name)} - Client Details</title><style>
         @page { size: A4; margin: 14mm; }
@@ -153,7 +151,7 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
         .value { font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
         footer { margin-top: 8mm; padding-top: 4mm; border-top: 1px solid #e5e5e5; color: #737373; font-size: 9px; }
         @media print { body { background: #fff; } }
-      </style></head><body><img class="watermark" src="${reportLogo}" alt="" />
+      </style></head><body><img class="watermark" src="${logoImg}" alt="" />
         <header><div><h1>Client Details</h1><p class="muted">Makezy Group client directory</p></div><div class="meta"><div>Generated ${escapeHtml(new Date().toLocaleString())}</div><div>Client record</div></div></header>
         <p class="intro">Complete contact and account information for this client.</p>
         <main class="client">

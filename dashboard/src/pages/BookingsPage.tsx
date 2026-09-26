@@ -1,10 +1,11 @@
-import { Plus, MoreHorizontal, Calendar, Clock, User, Edit3, Trash2 } from 'lucide-react';
+import { Plus, MoreHorizontal, Calendar, Clock, User, Edit3, Trash2, Download } from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import bookingsService from '@/services/bookings';
 import clientsService from '@/services/clients';
+import logoImg from '@/assets/logo.jpeg';
 
 interface ClientOption {
   id: string;
@@ -51,6 +52,13 @@ const getBookingSaveError = (error: unknown) => {
   }
   return 'Unable to save booking to the server';
 };
+
+const escapeHtml = (value: string) => value
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
 
 export default function BookingsPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [bookings, setBookings] = useState<Booking[]>(initialBookings);
@@ -134,6 +142,47 @@ export default function BookingsPage({ searchQuery = '' }: { searchQuery?: strin
     return new Date(2000, 0, 1, hours, minutes).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   };
 
+  const downloadBooking = (booking: Booking) => {
+    const reportWindow = window.open('', '_blank', 'width=900,height=1100');
+    if (!reportWindow) {
+      showToast('Please allow pop-ups to download the booking order as a PDF', 'warning');
+      return;
+    }
+
+    reportWindow.document.write(`<!doctype html>
+      <html><head><title>${escapeHtml(booking.id)} - Booking Order</title><style>
+        @page { size: A4; margin: 16mm; }
+        * { box-sizing: border-box; }
+        body { position: relative; margin: 0; color: #171717; font-family: Arial, Helvetica, sans-serif; }
+        .watermark { position: fixed; z-index: 0; width: 135mm; height: 135mm; object-fit: contain; left: 50%; top: 50%; transform: translate(-50%, -50%); opacity: .045; }
+        main, header { position: relative; z-index: 1; }
+        header { display: flex; align-items: center; gap: 14px; padding-bottom: 12mm; border-bottom: 2px solid #171717; }
+        header img { width: 18mm; height: 18mm; object-fit: contain; }
+        h1 { margin: 0 0 4px; font-size: 24px; }
+        .muted { margin: 0; color: #737373; font-size: 12px; }
+        main { padding-top: 10mm; }
+        .fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; }
+        .field { padding-bottom: 5mm; border-bottom: 1px solid #e5e5e5; }
+        .label { display: block; margin-bottom: 5px; color: #737373; font-size: 10px; text-transform: uppercase; }
+        .value { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; }
+        @media print { body { background: #fff; } }
+      </style></head><body><img class="watermark" src="${logoImg}" alt="" />
+        <header><img src="${logoImg}" alt="Makezy Group" /><div><h1>Booking Order</h1><p class="muted">${escapeHtml(booking.id)}</p></div></header>
+        <main><section class="fields">
+          <div class="field"><span class="label">Client</span><div class="value">${escapeHtml(booking.client)}</div></div>
+          <div class="field"><span class="label">Status</span><div class="value">${escapeHtml(booking.status)}</div></div>
+          <div class="field"><span class="label">Service details</span><div class="value">${escapeHtml(booking.service)}</div></div>
+          <div class="field"><span class="label">Assignee</span><div class="value">${escapeHtml(booking.assignee)}</div></div>
+          <div class="field"><span class="label">Date</span><div class="value">${escapeHtml(formatDate(booking.date))}</div></div>
+          <div class="field"><span class="label">Time</span><div class="value">${escapeHtml(formatTime(booking.time))}</div></div>
+          <div class="field"><span class="label">Notes</span><div class="value">${escapeHtml(booking.notes || 'No notes')}</div></div>
+        </section></main>
+        <script>const printReport=()=>{window.focus();window.print()};if(document.readyState==='complete')printReport();else{window.addEventListener('load',printReport,{once:true});window.setTimeout(printReport,1000)}</script>
+      </body></html>`);
+    reportWindow.document.close();
+    showToast(`Booking order "${booking.id}" opened for PDF download`, 'success');
+  };
+
   return (
     <div className="p-8 animate-fade-in">
       <div className="flex items-center justify-between mb-6">
@@ -176,6 +225,9 @@ export default function BookingsPage({ searchQuery = '' }: { searchQuery?: strin
             <div className="flex items-center justify-between mt-4 pt-4 border-t border-neutral-100">
               <button onClick={() => setViewBooking(b)} className="text-xs font-semibold text-black hover:underline">View details</button>
               <div className="flex items-center gap-1">
+                <button onClick={() => downloadBooking(b)} className="p-1.5 rounded-md text-neutral-500 hover:bg-neutral-100 transition-colors" title="Download booking order" aria-label={`Download booking order ${b.id}`}>
+                  <Download size={16} />
+                </button>
                 <button data-mutation-control onClick={() => openForm('edit', b)} className="p-1.5 rounded-md text-neutral-500 hover:bg-neutral-100 transition-colors" title="Edit booking">
                   <Edit3 size={16} />
                 </button>
