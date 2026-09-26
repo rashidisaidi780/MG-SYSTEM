@@ -13,17 +13,18 @@ interface TopbarProps {
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
   onOpenMenu: () => void;
+  sidebarOpen: boolean;
 }
 
-export default function Topbar({ title, subtitle, onNavigate, onRefresh, isLoading, searchQuery = '', onSearchChange, isDarkMode, onToggleDarkMode, onOpenMenu }: TopbarProps) {
+export default function Topbar({ title, subtitle, onNavigate, onRefresh, isLoading, searchQuery = '', onSearchChange, isDarkMode, onToggleDarkMode, onOpenMenu, sidebarOpen }: TopbarProps) {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white">
       <div className="flex h-16 items-center justify-between px-4 sm:px-6 md:px-8">
         <div className="flex min-w-0 items-center gap-3">
-        <button type="button" onClick={onOpenMenu} className="rounded-lg p-2 hover:bg-neutral-100 md:hidden" aria-label="Open navigation">
-          <Menu size={21} />
+        <button type="button" onClick={onOpenMenu} className="rounded-lg p-2 hover:bg-neutral-100" aria-label={sidebarOpen ? 'Close navigation' : 'Open navigation'} title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}>
+          {sidebarOpen ? <X size={21} /> : <Menu size={21} />}
         </button>
         <div className="min-w-0">
           <h1 className="truncate text-base font-bold tracking-tight sm:text-lg">{title}</h1>

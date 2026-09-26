@@ -36,7 +36,8 @@ interface SidebarProps {
   onNavigate: (page: PageId) => void;
   onLogoutRequest?: () => void;
   mobileOpen?: boolean;
-  onMobileClose?: () => void;
+  desktopOpen?: boolean;
+  onClose?: () => void;
   currentUser?: {
     username?: string;
     email?: string;
@@ -88,7 +89,7 @@ const NAV: NavGroup[] = [
   },
 ];
 
-export default function Sidebar({ active, onNavigate, onLogoutRequest, currentUser, mobileOpen = false, onMobileClose }: SidebarProps) {
+export default function Sidebar({ active, onNavigate, onLogoutRequest, currentUser, mobileOpen = false, desktopOpen = true, onClose }: SidebarProps) {
   const permissionFor = (pageId: PageId) => {
     if (currentUser?.role === 'Admin' || (Array.isArray(currentUser?.permissions) && currentUser.permissions.includes('*'))) return 'Both';
     const areaByPage: Partial<Record<PageId, string>> = {
@@ -124,18 +125,18 @@ export default function Sidebar({ active, onNavigate, onLogoutRequest, currentUs
 
   const handleNavigate = (page: PageId) => {
     onNavigate(page);
-    onMobileClose?.();
+    if (window.matchMedia('(max-width: 767px)').matches) onClose?.();
   };
 
   return (
     <>
-      {mobileOpen ? <button type="button" aria-label="Close navigation" onClick={onMobileClose} className="fixed inset-0 z-40 bg-black/45 md:hidden" /> : null}
-      <aside className={`fixed inset-y-0 left-0 z-50 flex w-72 shrink-0 flex-col border-r border-neutral-200 bg-white shadow-2xl transition-transform duration-200 md:sticky md:top-0 md:z-auto md:h-screen md:w-64 md:translate-x-0 md:shadow-none ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      {mobileOpen ? <button type="button" aria-label="Close navigation" onClick={onClose} className="fixed inset-x-0 bottom-0 top-16 z-20 bg-black/45 md:hidden" /> : null}
+      <aside className={`fixed bottom-0 left-0 top-16 z-50 flex w-72 shrink-0 flex-col border-r border-neutral-200 bg-white shadow-2xl transition-transform duration-200 md:sticky md:top-0 md:z-auto md:h-screen md:shadow-none ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} ${desktopOpen ? 'md:w-64 md:translate-x-0' : 'md:hidden'}`}>
       {/* Brand */}
       <div className="h-16 flex items-center gap-3 px-6 border-b border-neutral-200">
         <img src={logoImg} alt="Logo" className="w-9 h-9 rounded-lg object-cover dark:hidden" />
         <img src={darkLogoImg} alt="Logo" className="hidden w-9 h-9 rounded-lg object-cover dark:block" />
-        <div className="leading-tight">
+        <div className="leading-tight flex-1">
           <p className="font-bold text-[15px] tracking-tight">MAKEZY GROUP</p>
           <p className="text-[11px] text-neutral-400 font-medium">Management System</p>
         </div>
@@ -225,7 +226,7 @@ export default function Sidebar({ active, onNavigate, onLogoutRequest, currentUs
         </div>
         <div className="mt-3">
           <button
-            onClick={() => { onMobileClose?.(); onLogoutRequest?.(); }}
+            onClick={() => { onClose?.(); onLogoutRequest?.(); }}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 mt-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
           >
             <LogOut size={16} />

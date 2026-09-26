@@ -56,6 +56,7 @@ export default function App() {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem(THEME_KEY) === 'dark');
   const meta = pageMeta[page];
 
@@ -161,6 +162,14 @@ export default function App() {
     }, 1200);
   };
 
+  const closeSidebar = () => {
+    if (window.matchMedia('(min-width: 768px)').matches) {
+      setDesktopSidebarOpen(false);
+    } else {
+      setMobileMenuOpen(false);
+    }
+  };
+
   const canEditCurrentPage = () => {
     if (currentUser?.role === 'Admin' || (Array.isArray(currentUser?.permissions) && currentUser.permissions.includes('*'))) {
       return true;
@@ -208,10 +217,17 @@ export default function App() {
           onLogoutRequest={() => setLogoutConfirmOpen(true)}
           currentUser={currentUser || undefined}
           mobileOpen={mobileMenuOpen}
-          onMobileClose={() => setMobileMenuOpen(false)}
+          desktopOpen={desktopSidebarOpen}
+          onClose={closeSidebar}
         />
         <main className="flex-1 min-w-0">
-          <Topbar title={meta.title} subtitle={meta.subtitle} onNavigate={navigateToPage} onRefresh={handleRefresh} isLoading={isLoading} searchQuery={searchQuery} onSearchChange={setSearchQuery} isDarkMode={isDarkMode} onToggleDarkMode={() => setIsDarkMode((current) => !current)} onOpenMenu={() => setMobileMenuOpen(true)} />
+          <Topbar title={meta.title} subtitle={meta.subtitle} onNavigate={navigateToPage} onRefresh={handleRefresh} isLoading={isLoading} searchQuery={searchQuery} onSearchChange={setSearchQuery} isDarkMode={isDarkMode} onToggleDarkMode={() => setIsDarkMode((current) => !current)} sidebarOpen={window.matchMedia('(min-width: 768px)').matches ? desktopSidebarOpen : mobileMenuOpen} onOpenMenu={() => {
+            if (window.matchMedia('(min-width: 768px)').matches) {
+              setDesktopSidebarOpen((isOpen) => !isOpen);
+            } else {
+              setMobileMenuOpen((isOpen) => !isOpen);
+            }
+          }} />
           <div key={`${page}-${refreshKey}`} onClickCapture={blockReadOnlyMutation} className="min-h-[calc(100vh-4rem)] animate-book-page">
             {page === 'dashboard' && <DashboardPage />}
             {page === 'events' && <EventsPage searchQuery={searchQuery} />}
