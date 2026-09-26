@@ -34,6 +34,11 @@ interface ProjectApiRecord {
   project_leader: number | string | null;
 }
 
+interface ProjectApiPage {
+  data: ProjectApiRecord[];
+  last_page?: number;
+}
+
 export interface CreateProjectRequest {
   id?: string;
   name: string;
@@ -68,17 +73,28 @@ class ProjectsService {
   }
 
   async getAll(params?: { search?: string; status?: string; page?: number; limit?: number }): Promise<Project[]> {
-    const queryParams = new URLSearchParams();
-    if (params?.search) queryParams.append('search', params.search);
-    if (params?.status) queryParams.append('status', params.status);
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.limit) queryParams.append('limit', params.limit.toString());
+    const requestedPage = params?.page;
+    const limit = Math.min(Math.max(params?.limit ?? 100, 1), 100);
+    const records: ProjectApiRecord[] = [];
+    let page = requestedPage ?? 1;
+    let lastPage = page;
 
-    const queryString = queryParams.toString();
-    const endpoint = queryString ? `/projects?${queryString}` : '/projects';
-    
-    const response = await apiClient.get<{ data: { data: ProjectApiRecord[] } | ProjectApiRecord[] }>(endpoint);
-    const records = Array.isArray(response.data) ? response.data : response.data.data;
+    do {
+      const queryParams = new URLSearchParams();
+      if (params?.search) queryParams.append('search', params.search);
+      if (params?.status) queryParams.append('status', params.status);
+      queryParams.set('page', page.toString());
+      queryParams.set('limit', limit.toString());
+
+      const response = await apiClient.get<{ data: ProjectApiPage | ProjectApiRecord[] }>(`/projects?${queryParams.toString()}`);
+      const pageData = response.data;
+      records.push(...(Array.isArray(pageData) ? pageData : pageData.data));
+
+      if (requestedPage !== undefined || Array.isArray(pageData)) break;
+      lastPage = pageData.last_page ?? page;
+      page += 1;
+    } while (page <= lastPage);
+
     return records.map(toProject);
   }
 

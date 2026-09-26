@@ -24,6 +24,27 @@ interface Client {
 
 const initialClients: Client[] = [];
 
+const getClientErrorMessage = (error: unknown, fallback: string) => {
+  if (typeof error !== 'object' || error === null) return fallback;
+
+  const apiError = error as { status?: number; details?: unknown };
+  if (typeof apiError.details === 'object' && apiError.details !== null) {
+    const response = apiError.details as { message?: unknown; errors?: Record<string, unknown> };
+    if (typeof response.message === 'string') return response.message;
+
+    const firstValidationError = Object.values(response.errors ?? {})
+      .flat()
+      .find((message): message is string => typeof message === 'string');
+    if (firstValidationError) return firstValidationError;
+  }
+
+  if (apiError.status === 403) {
+    return 'You do not have edit access to Clients. Ask an administrator for Edit or Both access.';
+  }
+
+  return fallback;
+};
+
 const emptyClient: Client = {
   id: '',
   name: '',
@@ -53,6 +74,7 @@ const escapeHtml = (value: string | number | null | undefined) => String(value ?
 
 export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [clients, setClients] = useState<Client[]>(initialClients);
+  const canEditClients = authService.hasPermission('Clients', 'Edit');
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
@@ -196,7 +218,7 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
         showToast(`Client "${clientForPage.name}" ${formMode === 'add' ? 'added' : 'updated'} successfully`, 'success');
         closeForm();
       })
-      .catch(() => showToast('Unable to save the client to the server', 'error'));
+      .catch((error: unknown) => showToast(getClientErrorMessage(error, 'Unable to save the client to the server'), 'error'));
   };
 
   const handleDelete = (clientId: string) => {
@@ -210,7 +232,7 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
         }
         setPendingDeleteClientId(null);
       })
-      .catch(() => showToast('Unable to delete the client from the server', 'error'));
+      .catch((error: unknown) => showToast(getClientErrorMessage(error, 'Unable to delete the client from the server'), 'error'));
   };
 
   return (
@@ -220,14 +242,22 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
           <p className="text-sm text-neutral-400 font-medium">{filteredClients.length} clients total</p>
           <h2 className="text-2xl font-semibold">Client management</h2>
         </div>
-        <button
-          data-mutation-control
-          onClick={() => openForm('add')}
-          className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-black text-white text-sm font-semibold shadow-lg shadow-black/10 hover:bg-neutral-900 transition-all duration-200 animate-book-button"
-        >
-          <Plus size={16} /> Add Client
-        </button>
+        {canEditClients ? (
+          <button
+            data-mutation-control
+            onClick={() => openForm('add')}
+            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-black text-white text-sm font-semibold shadow-lg shadow-black/10 hover:bg-neutral-900 transition-all duration-200 animate-book-button"
+          >
+            <Plus size={16} /> Add Client
+          </button>
+        ) : null}
       </div>
+
+      {!canEditClients ? (
+        <p className="mb-5 text-sm text-amber-700">
+          You have view-only access to Clients. Ask an administrator for Edit or Both access to add, update, or delete clients.
+        </p>
+      ) : null}
 
       {isLoading ? <p className="text-sm text-neutral-500">Loading clients...</p> : null}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -253,22 +283,26 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
                 >
                   <Download size={16} />
                 </button>
-                <button
-                  data-mutation-control
-                  onClick={() => openForm('edit', client)}
-                  className="p-2 rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-black transition-colors"
-                  title="Edit client"
-                >
-                  <Edit3 size={16} />
-                </button>
-                <button
-                  data-mutation-control
-                  onClick={() => setPendingDeleteClientId(client.id)}
-                  className="p-2 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
-                  title="Delete client"
-                >
-                  <Trash2 size={16} />
-                </button>
+                {canEditClients ? (
+                  <>
+                    <button
+                      data-mutation-control
+                      onClick={() => openForm('edit', client)}
+                      className="p-2 rounded-xl text-neutral-500 hover:bg-neutral-100 hover:text-black transition-colors"
+                      title="Edit client"
+                    >
+                      <Edit3 size={16} />
+                    </button>
+                    <button
+                      data-mutation-control
+                      onClick={() => setPendingDeleteClientId(client.id)}
+                      className="p-2 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
+                      title="Delete client"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </>
+                ) : null}
               </div>
             </div>
 

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, MoreHorizontal, Download } from 'lucide-react';
+import { Plus, MoreHorizontal, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
@@ -8,6 +8,7 @@ import darkLogoImg from '@/assets/Makezy_logo.jpeg';
 import projectsService from '@/services/projects';
 import clientsService from '@/services/clients';
 import { adminService } from '@/services/admin';
+import { apiClient } from '@/services/api';
 import { authService } from '@/services/auth';
 
 interface ClientOption {
@@ -79,6 +80,8 @@ const initialProjects: Project[] = [];
   },
 ]; */
 
+const PROJECTS_PER_PAGE = 10;
+
 const statusStyles: Record<Project['status'], string> = {
   'In Progress': 'bg-neutral-100 text-neutral-700',
   Review: 'bg-amber-50 text-amber-700',
@@ -110,6 +113,7 @@ const escapeHtml = (value: string | number | null | undefined) => String(value ?
 
 export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [projectList, setProjectList] = useState<Project[]>(initialProjects);
+  const [currentPage, setCurrentPage] = useState(1);
   const [clients, setClients] = useState<ClientOption[]>(initialClients);
   const [leaders, setLeaders] = useState<{ id: string; name: string }[]>([]);
   const [formOpen, setFormOpen] = useState(false);
@@ -121,8 +125,25 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
   const { showToast } = useToast();
 
   useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  useEffect(() => {
     void projectsService.getAll().then((loaded) => setProjectList(loaded.map((project) => ({ ...project, clientId: project.client, budget: String(project.budget), lead: '' })))).catch(() => showToast('Unable to load projects from the server', 'error'));
-    void adminService.getAllUsers(1, 100).then((response) => setLeaders((response.data || []).map((user: { id: number | string; user_name: string }) => ({ id: String(user.id), name: user.user_name })))).catch(() => setLeaders([]));
+    const loadLeaders = async () => {
+      try {
+        const storedUser = authService.getStoredUser();
+        const users = storedUser?.role === 'Admin'
+          ? (await adminService.getAllUsers(1, 100)).data
+          : authService.hasPermission('Users')
+            ? (await apiClient.get<{ data: { id: number | string; user_name: string }[] }>('/users')).data
+            : [];
+        setLeaders(users.map((user: { id: number | string; user_name: string }) => ({ id: String(user.id), name: user.user_name })));
+      } catch {
+        setLeaders([]);
+      }
+    };
+    void loadLeaders();
     if (authService.hasPermission('Clients')) {
       void clientsService.getAll().then((loaded) => setClients(loaded.map((client) => ({ id: client.id, name: client.name })))).catch((error) => {
         if (error && typeof error === 'object' && 'status' in error && error.status === 403) return;
@@ -133,10 +154,14 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
 
   useEffect(() => {
     if (!leaders.length) return;
+    const getLeaderName = (project: Project) =>
+      leaders.find((leader) => leader.id === project.leaderId)?.name || project.lead;
+
     setProjectList((current) => current.map((project) => ({
       ...project,
-      lead: project.leaderId ? leaders.find((leader) => leader.id === project.leaderId)?.name || project.lead : project.lead,
+      lead: getLeaderName(project),
     })));
+    setActiveProject((current) => current ? { ...current, lead: getLeaderName(current) } : current);
   }, [leaders]);
 
   const filteredProjects = useMemo(() => {
@@ -149,6 +174,17 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
         project.lead.toLowerCase().includes(query),
     );
   }, [projectList, searchQuery]);
+
+  const pageCount = Math.max(1, Math.ceil(filteredProjects.length / PROJECTS_PER_PAGE));
+  const visiblePage = Math.min(currentPage, pageCount);
+  const visibleProjects = filteredProjects.slice(
+    (visiblePage - 1) * PROJECTS_PER_PAGE,
+    visiblePage * PROJECTS_PER_PAGE,
+  );
+  const firstVisibleProject = filteredProjects.length === 0
+    ? 0
+    : (visiblePage - 1) * PROJECTS_PER_PAGE + 1;
+  const lastVisibleProject = Math.min(visiblePage * PROJECTS_PER_PAGE, filteredProjects.length);
 
   const selectedClientName = (clientId: string) => clients.find((client) => client.id === clientId)?.name ?? '';
 
@@ -252,6 +288,7 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
     void saveRequest.then((saved) => {
       const pageProject = { ...formProject, id: saved.id, clientId: saved.client, budget: String(saved.budget) };
       setProjectList((current) => formMode === 'add' ? [pageProject, ...current] : current.map((project) => project.id === pageProject.id ? pageProject : project));
+      if (formMode === 'add') setCurrentPage(1);
       if (activeProject?.id === pageProject.id) setActiveProject(pageProject);
       notifySystem(formMode === 'add' ? 'Project added' : 'Project updated', `${saved.name} details were saved.`);
       showToast(`Project "${saved.name}" ${formMode === 'add' ? 'added' : 'updated'} successfully`, 'success');
@@ -306,7 +343,7 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
               </tr>
             </thead>
             <tbody>
-              {filteredProjects.map((project) => (
+              {visibleProjects.map((project) => (
                 <tr
                   key={project.id}
                   className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50 transition-colors cursor-pointer"
@@ -334,6 +371,33 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
               ))}
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-neutral-600">
+          <span>Showing {visibleProjects.length} projects ({firstVisibleProject}-{lastVisibleProject} of {filteredProjects.length})</span>
+        </div>
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setCurrentPage(visiblePage - 1)}
+            disabled={visiblePage <= 1}
+            aria-label="Previous project page"
+            className="rounded-lg border border-neutral-200 p-2 text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span className="min-w-20 text-center text-sm text-neutral-600">Page {visiblePage} of {pageCount}</span>
+          <button
+            type="button"
+            onClick={() => setCurrentPage(visiblePage + 1)}
+            disabled={visiblePage >= pageCount}
+            aria-label="Next project page"
+            className="rounded-lg border border-neutral-200 p-2 text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ChevronRight size={16} />
+          </button>
         </div>
       </div>
 
