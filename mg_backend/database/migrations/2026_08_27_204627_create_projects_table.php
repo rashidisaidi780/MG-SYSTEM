@@ -14,10 +14,15 @@ return new class extends Migration
             $table->unsignedBigInteger('project_id')->unique();
             $table->string('project_name');
 
-            $table->foreignId('client_id')
-                ->constrained('clients')
-                ->cascadeOnUpdate()
-                ->restrictOnDelete();
+            $table->unsignedBigInteger('client_id');
+
+            if (Schema::getConnection()->getDriverName() === 'sqlite' || Schema::hasTable('clients')) {
+                $table->foreign('client_id')
+                    ->references('id')
+                    ->on('clients')
+                    ->cascadeOnUpdate()
+                    ->restrictOnDelete();
+            }
 
             $table->decimal('project_budget', 15, 2)->default(0);
 

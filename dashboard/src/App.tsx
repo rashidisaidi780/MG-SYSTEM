@@ -10,6 +10,7 @@ import DashboardPage from '@/pages/DashboardPage';
 import SignInPage from '@/pages/SignInPage';
 import ProjectsPage from '@/pages/ProjectsPage';
 import ClientsPage from '@/pages/ClientsPage';
+import ContractsPage from '@/pages/ContractsPage';
 import UsersPage from '@/pages/UsersPage';
 import DepartmentsPage from '@/pages/DepartmentsPage';
 import WorkersPage from '@/pages/WorkersPage';
@@ -40,6 +41,7 @@ const pageMeta: Record<PageId, { title: string; subtitle: string }> = {
   notifications: { title: 'Notifications', subtitle: 'System notifications & alerts' },
   projects: { title: 'Projects', subtitle: 'Manage all company projects' },
   clients: { title: 'Clients', subtitle: 'Your client directory' },
+  contracts: { title: 'Contracts', subtitle: 'Professional client & worker agreement templates' },
   users: { title: 'Users', subtitle: 'User accounts & system roles' },
   departments: { title: 'Departments', subtitle: 'Manage departments & people counts' },
   workers: { title: 'Workers', subtitle: 'Team members & staff' },
@@ -57,6 +59,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem(THEME_KEY) === 'dark');
   const meta = pageMeta[page];
 
@@ -137,6 +140,34 @@ export default function App() {
     return () => window.removeEventListener('system-notification', handleSystemNotification);
   }, [currentUser]);
 
+  useEffect(() => {
+    if (!currentUser) {
+      setUnreadNotificationCount(0);
+      return;
+    }
+
+    let isActive = true;
+    const refreshUnreadCount = () => {
+      void notificationsService.getUnreadCount()
+        .then(({ count }) => {
+          if (isActive) setUnreadNotificationCount(count);
+        })
+        .catch(() => {
+          if (isActive) setUnreadNotificationCount(0);
+        });
+    };
+
+    refreshUnreadCount();
+    window.addEventListener('notifications-updated', refreshUnreadCount);
+    const refreshInterval = window.setInterval(refreshUnreadCount, 60000);
+
+    return () => {
+      isActive = false;
+      window.removeEventListener('notifications-updated', refreshUnreadCount);
+      window.clearInterval(refreshInterval);
+    };
+  }, [currentUser]);
+
   const handleSignIn = (user: AuthUser) => {
     setCurrentUser(user);
     localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
@@ -178,6 +209,7 @@ export default function App() {
     const areaByPage: Partial<Record<PageId, string>> = {
       projects: 'Projects',
       clients: 'Clients',
+      contracts: 'Contracts',
       users: 'Users',
       departments: 'Departments',
       workers: 'Workers',
@@ -216,12 +248,13 @@ export default function App() {
           onNavigate={(nextPage) => { navigateToPage(nextPage); setMobileMenuOpen(false); }}
           onLogoutRequest={() => setLogoutConfirmOpen(true)}
           currentUser={currentUser || undefined}
+          unreadNotificationCount={unreadNotificationCount}
           mobileOpen={mobileMenuOpen}
           desktopOpen={desktopSidebarOpen}
           onClose={closeSidebar}
         />
         <main className="flex-1 min-w-0">
-          <Topbar title={meta.title} subtitle={meta.subtitle} onNavigate={navigateToPage} onRefresh={handleRefresh} isLoading={isLoading} searchQuery={searchQuery} onSearchChange={setSearchQuery} isDarkMode={isDarkMode} onToggleDarkMode={() => setIsDarkMode((current) => !current)} sidebarOpen={window.matchMedia('(min-width: 768px)').matches ? desktopSidebarOpen : mobileMenuOpen} onOpenMenu={() => {
+          <Topbar title={meta.title} subtitle={meta.subtitle} onNavigate={navigateToPage} onRefresh={handleRefresh} isLoading={isLoading} searchQuery={searchQuery} onSearchChange={setSearchQuery} isDarkMode={isDarkMode} onToggleDarkMode={() => setIsDarkMode((current) => !current)} unreadNotificationCount={unreadNotificationCount} sidebarOpen={window.matchMedia('(min-width: 768px)').matches ? desktopSidebarOpen : mobileMenuOpen} onOpenMenu={() => {
             if (window.matchMedia('(min-width: 768px)').matches) {
               setDesktopSidebarOpen((isOpen) => !isOpen);
             } else {
@@ -234,6 +267,7 @@ export default function App() {
             {page === 'notifications' && <NotificationsPage refreshKey={refreshKey} />}
             {page === 'projects' && <ProjectsPage searchQuery={searchQuery} />}
             {page === 'clients' && <ClientsPage searchQuery={searchQuery} />}
+            {page === 'contracts' && <ContractsPage />}
             {page === 'users' && <UsersPage searchQuery={searchQuery} />}
             {page === 'departments' && <DepartmentsPage searchQuery={searchQuery} />}
             {page === 'workers' && <WorkersPage searchQuery={searchQuery} />}

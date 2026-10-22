@@ -325,6 +325,83 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
     showToast(`${inv.id} opened for PDF download`, 'success');
   };
 
+  const handleDownloadQuotation = (id: string) => {
+    const inv = invoices.find((i) => i.id === id);
+    if (!inv) return;
+    const items = inv.items?.length ? inv.items : [{ desc: 'Services', quantity: 1, amount: Number(inv.amount.replace(/[^0-9.-]+/g, '')) || 0 }];
+    const itemsTotal = items.reduce((sum, item) => sum + item.quantity * item.amount, 0);
+    const quotationWindow = window.open('', '_blank', 'width=900,height=1100');
+    if (!quotationWindow) {
+      showToast('Please allow pop-ups to download the quotation.', 'warning');
+      return;
+    }
+
+    quotationWindow.document.write(`<!doctype html>
+      <html><head><title>${escapeHtml(inv.id)} - Quotation</title>
+      <style>
+        @page { size: A4; margin: 0; }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: #111827; font-family: Arial, Helvetica, sans-serif; background: #f8fafc; }
+        .page { position: relative; width: 210mm; height: 297mm; margin: 0 auto; padding: 12mm 14mm 20mm; overflow: hidden; background: #fff; }
+        .watermark { position: absolute; z-index: 0; width: 135mm; height: 135mm; object-fit: contain; left: 37mm; top: 78mm; opacity: .045; }
+        .content { position: relative; z-index: 1; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 7mm; border-bottom: 2px solid #0f172a; }
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .brand img { width: 54px; height: 54px; object-fit: contain; border-radius: 12px; }
+        .brand-name { margin: 0; font-size: 22px; letter-spacing: 2px; }
+        .muted { color: #475569; }
+        .small { font-size: 9px; line-height: 1.45; }
+        .title { text-align: right; }
+        .title h1 { margin: 0 0 4px; font-size: 28px; letter-spacing: 1px; }
+        .title p { margin: 2px 0; font-size: 10px; }
+        .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 14mm; padding: 7mm 0 6mm; }
+        .label { margin-bottom: 3px; color: #475569; font-size: 8px; letter-spacing: 1.2px; text-transform: uppercase; }
+        .value { font-size: 11px; line-height: 1.5; }
+        table { width: 100%; border-collapse: collapse; margin-top: 2mm; }
+        th { padding: 7px 10px; color: #475569; background: #f8fafc; font-size: 8px; letter-spacing: 1px; text-align: left; text-transform: uppercase; }
+        td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; font-size: 10px; }
+        th:nth-child(n+2), td:nth-child(n+2) { text-align: right; }
+        .total { display: flex; justify-content: flex-end; padding: 5mm 10px 6mm; border-bottom: 1px solid #0f172a; }
+        .total-box { width: 72mm; }
+        .total-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 10px; }
+        .grand-total { margin-top: 5px; padding-top: 6px; border-top: 1px solid #d4d4d4; font-size: 14px; font-weight: bold; }
+        .details { display: grid; grid-template-columns: 1fr 1fr; gap: 10mm; padding-top: 7mm; }
+        .detail-box { padding-top: 8px; border-top: 2px solid #0f172a; }
+        .detail-box h2 { margin: 0 0 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+        .detail-box p { margin: 3px 0; font-size: 9px; line-height: 1.35; }
+        .terms { margin-top: 7mm; padding-top: 5mm; border-top: 1px solid #e2e8f0; font-size: 9px; line-height: 1.6; color: #475569; }
+        .footer { position: absolute; bottom: 11mm; left: 14mm; right: 14mm; display: flex; justify-content: space-between; padding-top: 6px; border-top: 1px solid #e2e8f0; font-size: 8px; color: #64748b; }
+        @media print { body { background: #fff; } .page { margin: 0; } }
+      </style></head><body><main class="page">
+        <img class="watermark" src="${logoImg}" alt="" />
+        <div class="content">
+          <header class="header">
+            <div class="brand"><img src="${logoImg}" alt="${escapeHtml(companyProfile.name)} logo" /><div><h2 class="brand-name">${escapeHtml(companyProfile.name)}</h2><p class="small muted">${escapeHtml(companyProfile.location)}</p></div></div>
+            <div class="title"><h1>QUOTATION</h1><p><strong>${escapeHtml(inv.id)}</strong></p><p class="muted">Valid until ${escapeHtml(inv.due || 'Not specified')}</p></div>
+          </header>
+          <section class="meta">
+            <div><div class="label">Quoted to</div><div class="value"><strong>${escapeHtml(inv.company || inv.client)}</strong><br>${escapeHtml(inv.client)}<br>${escapeHtml(inv.address || '')}<br>${escapeHtml(inv.country || '')}<br>${escapeHtml(inv.email || '')} &nbsp; ${escapeHtml(inv.phone || '')}<br>TIN: ${escapeHtml(inv.tin || 'Not provided')}</div></div>
+            <div><div class="label">Quotation details</div><div class="value">Issue date: <strong>${escapeHtml(inv.date || 'Not provided')}</strong><br>Valid until: <strong>${escapeHtml(inv.due || 'Not provided')}</strong><br>Reference: <strong>${escapeHtml(inv.id)}</strong></div></div>
+          </section>
+          <table><thead><tr><th>Description</th><th>Quantity</th><th>Unit price</th><th>Amount</th></tr></thead><tbody>${items.map((item) => `<tr><td>${escapeHtml(item.desc || 'Service')}</td><td>${item.quantity}</td><td>${formatCurrency(item.amount)}</td><td>${formatCurrency(item.quantity * item.amount)}</td></tr>`).join('')}</tbody></table>
+          <div class="total"><div class="total-box"><div class="total-row"><span>Subtotal</span><span>${formatCurrency(itemsTotal)}</span></div><div class="total-row grand-total"><span>Total estimate: </span><span>${formatCurrency(itemsTotal)}</span></div></div></div>
+          <section class="details"><div class="detail-box"><h2>Contact info</h2><p>${escapeHtml(companyProfile.email)}</p><p>${escapeHtml(companyProfile.phone)}</p><p>${escapeHtml(companyProfile.website)}</p><p>${escapeHtml(companyProfile.poBox)}</p></div><div class="detail-box"><h2>Regards</h2><p>${escapeHtml(companyProfile.name)}</p><p>We appreciate the opportunity to provide this quotation.</p><p>All pricing is subject to confirmation and project scope approval.</p></div></section>
+          <div class="terms"><strong>Terms:</strong> This quotation is prepared for review and pricing discussion. Final scope, timeline, and payment conditions may be adjusted after formal acceptance by the client.</div>
+        </div><footer class="footer"><span>Thank you.</span><span>${escapeHtml(companyProfile.website)}</span></footer>
+      </main><script>
+        const printQuotation = () => { window.focus(); window.print(); };
+        if (document.readyState === 'complete') {
+          printQuotation();
+        } else {
+          window.addEventListener('load', printQuotation, { once: true });
+          window.setTimeout(printQuotation, 1000);
+        }
+      </script></body></html>`);
+    quotationWindow.document.close();
+    setOpenMenu(null);
+    showToast(`${inv.id} quotation opened for download`, 'success');
+  };
+
   const saveEdit = () => {
     if (!editInvoice) return;
     const total = getItemsTotal(editInvoice.items, Number(editInvoice.amount.replace(/[^0-9.-]+/g, '')) || 0);
@@ -535,7 +612,10 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
                           <Trash2 size={14} /> Delete
                         </button>
                         <button onClick={() => handleDownload(inv.id)} className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-50 flex items-center gap-2">
-                          <Download size={14} /> Download
+                          <Download size={14} /> Download Invoice
+                        </button>
+                        <button onClick={() => handleDownloadQuotation(inv.id)} className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-50 flex items-center gap-2">
+                          <Download size={14} /> Download Quotation
                         </button>
                       </div>
                     ) : null}

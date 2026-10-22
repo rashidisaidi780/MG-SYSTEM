@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
-import { ImagePlus, Plus, Trash2 } from 'lucide-react';
+import { Download, ImagePlus, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import updatesService, { type UpdatePost } from '@/services/updates';
@@ -16,6 +16,7 @@ const emptyForm = {
   title: '',
   description: '',
   image: null as string | null,
+  videoFile: null as File | null,
   isNew: true,
   durationValue: 1,
   durationUnit: 'day' as 'day' | 'week' | 'month' | 'year',
@@ -27,6 +28,7 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
+  const [downloadingPostId, setDownloadingPostId] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const { showToast } = useToast();
 
@@ -86,13 +88,32 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
 
     const reader = new FileReader();
     reader.onload = () => {
-      setForm((current) => ({ ...current, image: String(reader.result ?? null) }));
+      setForm((current) => ({ ...current, image: String(reader.result ?? null), videoFile: null }));
       showToast('Image uploaded successfully', 'success');
     };
     reader.onerror = () => {
       showToast('Failed to upload image', 'error');
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleVideoUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!['video/mp4', 'video/webm', 'video/quicktime'].includes(file.type)) {
+      showToast('Please select an MP4, WebM, or MOV video', 'error');
+      event.target.value = '';
+      return;
+    }
+
+    if (file.size > 30 * 1024 * 1024) {
+      showToast('Video size must be 30MB or less', 'error');
+      event.target.value = '';
+      return;
+    }
+
+    setForm((current) => ({ ...current, image: null, videoFile: file }));
   };
 
   const calculateDurationDays = (): number => {
@@ -128,13 +149,14 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
       title: form.title.trim(),
       description: form.description.trim(),
       image: form.image,
+      mediaType: form.videoFile ? 'video' : form.image ? 'image' : null,
       isNew: form.isNew,
       createdAt: createdAt.toISOString().slice(0, 10),
       expiresAt: expiresAt.toISOString(),
       durationDays,
     };
 
-    void updatesService.create(nextPost)
+    void updatesService.create({ ...nextPost, mediaFile: form.videoFile })
       .then((savedPost) => {
         setPosts((current) => [{ ...savedPost, expiresAt: nextPost.expiresAt }, ...current]);
         notifySystem('Event & Update published', savedPost.title);
@@ -166,6 +188,30 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
         showToast(`Event "${post.title}" deleted`, 'info');
       })
       .catch(() => showToast('Unable to delete the event from the server', 'error'));
+  };
+
+  const getImageDownloadName = (post: EventPost) => {
+    const title = post.title.trim().replace(/[^a-z0-9-_]+/gi, '-').replace(/^-|-$/g, '') || 'event';
+    const extension = post.image?.match(/^data:image\/([a-z0-9.+-]+);/i)?.[1] || 'image';
+    return `${title}-${post.id}.${extension}`;
+  };
+
+  const downloadVideo = async (post: EventPost) => {
+    setDownloadingPostId(post.id);
+    try {
+      const blob = await updatesService.downloadMedia(post.id);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const extension = blob.type === 'video/webm' ? 'webm' : blob.type === 'video/quicktime' ? 'mov' : 'mp4';
+      link.href = url;
+      link.download = `${post.title.trim().replace(/[^a-z0-9-_]+/gi, '-') || 'event'}-${post.id}.${extension}`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      showToast('Unable to download this event video', 'error');
+    } finally {
+      setDownloadingPostId(null);
+    }
   };
 
   return (
@@ -206,20 +252,46 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
             key={post.id}
             className="overflow-hidden rounded-[28px] border border-neutral-200 bg-white shadow-sm"
           >
-            {post.image ? (
-              <button
-                onClick={() => setFullscreenImage(post.image)}
-                className="relative block w-full overflow-hidden group"
-              >
-                <img
-                  src={post.image}
-                  alt={post.title}
-                  className="h-52 w-full object-cover cursor-pointer transition group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center opacity-0 group-hover:opacity-100">
-                  <span className="text-white text-sm font-semibold">Click to view fullscreen</span>
+            {post.mediaType === 'video' ? (
+              <div className="flex h-52 items-center justify-center bg-neutral-100">
+                <div className="flex flex-col items-center gap-2 text-neutral-500">
+                  <span className="text-sm font-semibold">Video event</span>
+                  <button
+                    type="button"
+                    onClick={() => void downloadVideo(post)}
+                    disabled={downloadingPostId === post.id}
+                    className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-800 shadow-sm transition hover:bg-neutral-50 disabled:opacity-50"
+                  >
+                    <Download size={16} />
+                    {downloadingPostId === post.id ? 'Downloading...' : 'Download video'}
+                  </button>
                 </div>
-              </button>
+              </div>
+            ) : post.image ? (
+              <div className="relative group">
+                <button
+                  onClick={() => setFullscreenImage(post.image)}
+                  className="relative block w-full overflow-hidden"
+                >
+                  <img
+                    src={post.image}
+                    alt={post.title}
+                    className="h-52 w-full object-cover cursor-pointer transition group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <span className="text-white text-sm font-semibold">Click to view fullscreen</span>
+                  </div>
+                </button>
+                <a
+                  href={post.image}
+                  download={getImageDownloadName(post)}
+                  aria-label={`Download image for ${post.title}`}
+                  title="Download event image"
+                  className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-xl bg-white/95 text-neutral-800 shadow transition hover:bg-white"
+                >
+                  <Download size={17} />
+                </a>
+              </div>
             ) : (
               <div className="flex h-52 items-center justify-center bg-neutral-100 text-neutral-400">
                 <div className="flex flex-col items-center gap-2">
@@ -327,6 +399,25 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
                 {form.image ? (
                   <img src={form.image} alt="Preview" className="mt-4 h-40 w-full rounded-2xl object-cover" />
                 ) : null}
+
+                <div className="mt-4 flex items-center justify-between gap-3 border-t border-neutral-200 pt-4">
+                  <div>
+                    <p className="text-sm font-medium text-neutral-700">Or upload an event video</p>
+                    <p className="text-xs text-neutral-500">MP4, WebM, or MOV · up to 30MB</p>
+                    {form.videoFile ? (
+                      <p className="mt-1 max-w-xs truncate text-xs text-neutral-600">{form.videoFile.name}</p>
+                    ) : null}
+                  </div>
+                  <label className="cursor-pointer rounded-2xl border border-neutral-300 bg-white px-4 py-2 text-xs font-semibold text-neutral-700">
+                    Choose video
+                    <input
+                      type="file"
+                      accept="video/mp4,video/webm,video/quicktime"
+                      className="hidden"
+                      onChange={handleVideoUpload}
+                    />
+                  </label>
+                </div>
               </div>
 
               <label className="block space-y-2 text-sm font-medium text-neutral-700">

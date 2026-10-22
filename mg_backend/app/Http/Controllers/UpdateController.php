@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Update;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class UpdateController extends Controller
 {
@@ -12,12 +13,49 @@ class UpdateController extends Controller
     {
         $updates = Update::orderBy('created_at', 'desc')->get()->filter(function (Update $update) {
             $duration = max(1, $update->update_duration ?? 1);
+
             return $update->created_at && $update->created_at->copy()->addDays($duration)->isFuture();
         })->values();
 
         return response()->json([
             'success' => true,
-            'data' => $updates
+            'data' => $updates,
+        ]);
+    }
+
+    public function media($id, Request $request)
+    {
+        $update = Update::find($id);
+
+        if (! $update || ! str_starts_with((string) $update->update_image, 'events/')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Event media not found',
+            ], 404);
+        }
+
+        $disk = Storage::disk('local');
+        $path = $update->update_image;
+
+        if (! $disk->exists($path)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Event media file is missing',
+            ], 404);
+        }
+
+        if ($request->boolean('download')) {
+            return $disk->download($path, basename($path));
+        }
+
+        return response()->file($disk->path($path), [
+            'Content-Type' => match (strtolower(pathinfo($path, PATHINFO_EXTENSION))) {
+                'mp4' => 'video/mp4',
+                'webm' => 'video/webm',
+                'mov' => 'video/quicktime',
+                default => 'application/octet-stream',
+            },
+            'Content-Disposition' => 'inline; filename="'.basename($path).'"',
         ]);
     }
 
@@ -33,14 +71,32 @@ class UpdateController extends Controller
             'update_duration' => 'nullable|integer|min:1',
             'update_status' => 'nullable|string|max:50',
             'is_new' => 'nullable|boolean',
+            'media' => 'nullable|file|mimes:mp4,webm,mov|max:30720',
         ]);
 
-        $update = Update::create($validated);
+        $mediaPath = isset($validated['media'])
+            ? Storage::disk('local')->putFile('events', $validated['media'])
+            : null;
+        unset($validated['media']);
+
+        if ($mediaPath !== null) {
+            $validated['update_image'] = $mediaPath;
+        }
+
+        try {
+            $update = Update::create($validated);
+        } catch (\Throwable $exception) {
+            if ($mediaPath !== null) {
+                Storage::disk('local')->delete($mediaPath);
+            }
+
+            throw $exception;
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Update created successfully',
-            'data' => $update
+            'data' => $update,
         ], 201);
     }
 
@@ -49,16 +105,16 @@ class UpdateController extends Controller
     {
         $update = Update::find($id);
 
-        if (!$update) {
+        if (! $update) {
             return response()->json([
                 'success' => false,
-                'message' => 'Update not found'
+                'message' => 'Update not found',
             ], 404);
         }
 
         return response()->json([
             'success' => true,
-            'data' => $update
+            'data' => $update,
         ]);
     }
 
@@ -67,15 +123,15 @@ class UpdateController extends Controller
     {
         $update = Update::find($id);
 
-        if (!$update) {
+        if (! $update) {
             return response()->json([
                 'success' => false,
-                'message' => 'Update not found'
+                'message' => 'Update not found',
             ], 404);
         }
 
         $validated = $request->validate([
-            'update_id' => 'sometimes|string|max:255|unique:updates,update_id,' . $id,
+            'update_id' => 'sometimes|string|max:255|unique:updates,update_id,'.$id,
             'update_title' => 'sometimes|string|max:255',
             'update_description' => 'sometimes|string',
             'update_image' => 'nullable|string',
@@ -90,7 +146,7 @@ class UpdateController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Update updated successfully',
-            'data' => $update
+            'data' => $update,
         ]);
     }
 
@@ -99,10 +155,10 @@ class UpdateController extends Controller
     {
         $update = Update::find($id);
 
-        if (!$update) {
+        if (! $update) {
             return response()->json([
                 'success' => false,
-                'message' => 'Update not found'
+                'message' => 'Update not found',
             ], 404);
         }
 
@@ -110,7 +166,7 @@ class UpdateController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Update deleted successfully'
+            'message' => 'Update deleted successfully',
         ]);
     }
 }

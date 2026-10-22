@@ -146,6 +146,53 @@ class ApiClient {
     }
   }
 
+  async postForm<T>(endpoint: string, data: FormData): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`;
+    const signal = AbortSignal.timeout(Math.max(this.timeout, 120000));
+    const headers: Record<string, string> = { Accept: 'application/json' };
+
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`;
+    }
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: data,
+        signal,
+      });
+
+      return this.handleResponse<T>(response);
+    } catch (error) {
+      this.handleError(error);
+      throw error;
+    }
+  }
+
+  async download(endpoint: string): Promise<Blob> {
+    const url = `${this.baseUrl}${endpoint}`;
+    const signal = AbortSignal.timeout(this.timeout);
+    const headers: Record<string, string> = { Accept: '*/*' };
+
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`;
+    }
+
+    try {
+      const response = await fetch(url, { method: 'GET', headers, signal });
+
+      if (!response.ok) {
+        await this.handleResponse(response);
+      }
+
+      return response.blob();
+    } catch (error) {
+      this.handleError(error);
+      throw error;
+    }
+  }
+
   async put<T>(endpoint: string, data?: unknown, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const signal = AbortSignal.timeout(this.timeout);

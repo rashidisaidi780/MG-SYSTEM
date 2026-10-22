@@ -24,6 +24,7 @@ export type PageId =
   | 'events'
   | 'projects'
   | 'clients'
+  | 'contracts'
   | 'users'
   | 'departments'
   | 'workers'
@@ -38,6 +39,7 @@ interface SidebarProps {
   mobileOpen?: boolean;
   desktopOpen?: boolean;
   onClose?: () => void;
+  unreadNotificationCount?: number;
   currentUser?: {
     username?: string;
     email?: string;
@@ -61,6 +63,7 @@ const NAV: NavGroup[] = [
     children: [
       { id: 'projects', label: 'Projects', icon: FolderKanban },
       { id: 'clients', label: 'Clients', icon: Users },
+      { id: 'contracts', label: 'Contracts', icon: FileText },
       { id: 'users', label: 'Users', icon: UserCog },
       { id: 'departments', label: 'Departments', icon: Building2 },
     ],
@@ -89,13 +92,20 @@ const NAV: NavGroup[] = [
   },
 ];
 
-export default function Sidebar({ active, onNavigate, onLogoutRequest, currentUser, mobileOpen = false, desktopOpen = true, onClose }: SidebarProps) {
+export default function Sidebar({ active, onNavigate, onLogoutRequest, currentUser, mobileOpen = false, desktopOpen = true, onClose, unreadNotificationCount = 0 }: SidebarProps) {
   const permissionFor = (pageId: PageId) => {
     if (currentUser?.role === 'Admin' || (Array.isArray(currentUser?.permissions) && currentUser.permissions.includes('*'))) return 'Both';
+    if (pageId === 'events') {
+      const eventPermission = Array.isArray(currentUser?.permissions)
+        ? (currentUser.permissions.includes('Event & Updates') ? 'View' : 'None')
+        : currentUser?.permissions?.['Event & Updates'];
+      return eventPermission && eventPermission !== 'None' ? eventPermission : 'View';
+    }
     const areaByPage: Partial<Record<PageId, string>> = {
       dashboard: 'Dashboard',
       projects: 'Projects',
       clients: 'Clients',
+      contracts: 'Contracts',
       users: 'Users',
       departments: 'Departments',
       workers: 'Workers',
@@ -164,7 +174,12 @@ export default function Sidebar({ active, onNavigate, onLogoutRequest, currentUs
                 }`}
               >
                 <group.icon size={18} strokeWidth={1.75} />
-                {group.label}
+                <span>{group.label}</span>
+                {group.id === 'notifications' && unreadNotificationCount > 0 ? (
+                  <span className="ml-auto min-w-5 rounded-full bg-red-600 px-1.5 py-0.5 text-center text-[10px] font-bold leading-4 text-white">
+                    {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
+                  </span>
+                ) : null}
               </button>
             );
           }

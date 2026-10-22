@@ -1,25 +1,28 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ProjectController;
-use App\Http\Controllers\ClientController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\DepartmentController;
-use App\Http\Controllers\WorkerController;
-use App\Http\Controllers\InvoiceController;
-use App\Http\Controllers\OfficeOrderController;
-use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminController;
-use App\Http\Controllers\UpdateController;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\ClientController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\OfficeOrderController;
+use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\UpdateController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\WorkerController;
+use Illuminate\Support\Facades\Route;
 
 // Public authentication routes (no token required)
 Route::post('/auth/login', [AuthController::class, 'login']);
 
 // Protected routes (require authentication)
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
+
     // Auth endpoints
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
@@ -48,7 +51,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('permission:Workers')->apiResource('workers', WorkerController::class);
     Route::middleware('permission:Booking Orders')->apiResource('bookings', BookingController::class);
     Route::middleware('permission:Invoices')->apiResource('invoices', InvoiceController::class);
-    Route::middleware('permission:Event & Updates')->apiResource('updates', UpdateController::class);
+    Route::get('/updates', [UpdateController::class, 'index']);
+    Route::get('/updates/{id}/media', [UpdateController::class, 'media']);
+    Route::get('/updates/{id}', [UpdateController::class, 'show']);
+    Route::middleware('permission:Event & Updates')->group(function () {
+        Route::post('/updates', [UpdateController::class, 'store']);
+        Route::put('/updates/{id}', [UpdateController::class, 'update']);
+        Route::delete('/updates/{id}', [UpdateController::class, 'destroy']);
+    });
     Route::middleware('permission:Office Orders')->apiResource('officeorders', OfficeOrderController::class);
     Route::apiResource('admins', AdminController::class);
 });

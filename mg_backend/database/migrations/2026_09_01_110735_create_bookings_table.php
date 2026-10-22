@@ -28,21 +28,22 @@ return new class extends Migration
 
             // Client relationship
             $table->foreign('client_id')
-                  ->references('id')
-                  ->on('clients')
-                  ->onDelete('cascade');
+                ->references('id')
+                ->on('clients')
+                ->onDelete('cascade');
 
-            // Service relationship
-            $table->foreign('service_id')
-                  ->references('id')
-                  ->on('services')
-                  ->onDelete('cascade');
+            if (Schema::getConnection()->getDriverName() === 'sqlite' || Schema::hasTable('services')) {
+                $table->foreign('service_id')
+                    ->references('id')
+                    ->on('services')
+                    ->onDelete('cascade');
+            }
 
             // Worker assigned to booking
             $table->foreign('assignee')
-                  ->references('id')
-                  ->on('workers')
-                  ->onDelete('set null');
+                ->references('id')
+                ->on('workers')
+                ->onDelete('set null');
         });
     }
 

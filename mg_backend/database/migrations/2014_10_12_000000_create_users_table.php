@@ -24,11 +24,12 @@ return new class extends Migration
             $table->rememberToken();
             $table->timestamps();
 
-            // Add this only if you already have a departments table
-            $table->foreign('department_id')
-                   ->references('id')
-                   ->on('departments')
-                   ->onDelete('set null');
+            if (Schema::getConnection()->getDriverName() === 'sqlite' || Schema::hasTable('departments')) {
+                $table->foreign('department_id')
+                    ->references('id')
+                    ->on('departments')
+                    ->onDelete('set null');
+            }
         });
     }
 

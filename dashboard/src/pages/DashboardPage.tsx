@@ -1,22 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { FileText, FolderKanban, Users, ClipboardList, Activity, AlertTriangle } from 'lucide-react';
 import { SYSTEM_ACTIVITIES_STORAGE_KEY, type SystemActivity } from '@/utils/systemNotifications';
-import invoicesService, { type Invoice } from '@/services/invoices';
-import projectsService, { type Project } from '@/services/projects';
-import workersService from '@/services/workers';
-import bookingsService from '@/services/bookings';
-import officeOrdersService from '@/services/officeOrders';
-import clientsService from '@/services/clients';
-import { authService } from '@/services/auth';
+import { dashboardService, type DashboardSummary } from '@/services/dashboard';
 
 export default function DashboardPage() {
-  const [invoiceCount, setInvoiceCount] = useState(0);
-  const [clientCount, setClientCount] = useState(0);
-  const [invoiceDeadlines, setInvoiceDeadlines] = useState<Invoice[]>([]);
-  const [projectCount, setProjectCount] = useState(0);
-  const [projectDeadlines, setProjectDeadlines] = useState<Project[]>([]);
-  const [contractDeadlines, setContractDeadlines] = useState<{ name: string; date: string }[]>([]);
-  const [orderCount, setOrderCount] = useState(0);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [activities, setActivities] = useState<SystemActivity[]>(() => {
     try {
       const stored = localStorage.getItem(SYSTEM_ACTIVITIES_STORAGE_KEY);
@@ -37,95 +27,36 @@ export default function DashboardPage() {
     return () => window.removeEventListener('system-activity', handleActivity);
   }, []);
 
-  useEffect(() => {
-    if (!authService.hasPermission('Workers')) return;
+  const loadDashboard = useCallback(async () => {
+    setIsLoading(true);
 
-    void workersService.getAll({ limit: 100 })
-      .then((workers) => setContractDeadlines(workers
-        .filter((worker) => worker.contractEndDate)
-        .map((worker) => ({ name: worker.name, date: worker.contractEndDate || '' }))))
-      .catch((error) => {
-        if (error && typeof error === 'object' && 'status' in error && error.status === 403) return;
-        setContractDeadlines([]);
-      });
+    try {
+      setSummary(await dashboardService.getSummary());
+      setLoadError(false);
+    } catch (error) {
+      console.error('Unable to load dashboard data:', error);
+      setLoadError(true);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    if (!authService.hasPermission('Clients')) return;
+    void loadDashboard();
+  }, [loadDashboard]);
 
-    void clientsService.getAll()
-      .then((clients) => setClientCount(clients.length))
-      .catch(() => setClientCount(0));
-  }, []);
-
-  useEffect(() => {
-    if (!authService.hasPermission('Invoices')) return;
-
-    void invoicesService.getAll()
-      .then((invoices) => {
-        setInvoiceCount(invoices.length);
-        setInvoiceDeadlines(invoices);
-      })
-      .catch((error) => {
-        if (error && typeof error === 'object' && 'status' in error && error.status === 403) return;
-        setInvoiceCount(0);
-        setInvoiceDeadlines([]);
-      });
-  }, []);
-
-  useEffect(() => {
-    if (!authService.hasPermission('Projects')) return;
-
-    void projectsService.getCount()
-      .then(setProjectCount)
-      .catch((error) => {
-        if (error && typeof error === 'object' && 'status' in error && error.status === 403) return;
-        setProjectCount(0);
-      });
-
-    void projectsService.getAll({ limit: 100 })
-      .then(setProjectDeadlines)
-      .catch((error) => {
-        if (error && typeof error === 'object' && 'status' in error && error.status === 403) return;
-        setProjectDeadlines([]);
-      });
-  }, []);
-
-  useEffect(() => {
-    const loadOrderCount = async () => {
-      const requests: Promise<unknown[]>[] = [];
-      if (authService.hasPermission('Booking Orders')) requests.push(bookingsService.getAll());
-      if (authService.hasPermission('Office Orders')) requests.push(officeOrdersService.getAll());
-
-      const results = await Promise.allSettled(requests);
-      setOrderCount(results.reduce((total, result) => total + (result.status === 'fulfilled' ? result.value.length : 0), 0));
-    };
-
-    void loadOrderCount();
-  }, []);
-
-  const projects = projectCount;
-  const orders = orderCount;
-  const canViewInvoices = authService.hasPermission('Invoices');
-  const canViewProjects = authService.hasPermission('Projects');
-  const canViewBookings = authService.hasPermission('Booking Orders');
-  const canViewOfficeOrders = authService.hasPermission('Office Orders');
-  const canViewWorkers = authService.hasPermission('Workers');
+  const invoiceCount = summary?.invoiceCount ?? 0;
+  const clientCount = summary?.clientCount ?? 0;
+  const projects = summary?.projectCount ?? 0;
+  const orders = (summary?.bookingCount ?? 0) + (summary?.officeOrderCount ?? 0);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const thirtyDaysFromNow = new Date(today);
   thirtyDaysFromNow.setDate(today.getDate() + 30);
-  const expiringItems = [
-    ...(canViewInvoices ? invoiceDeadlines
-      .filter((invoice) => invoice.status !== 'Paid' && invoice.status !== 'Canceled')
-      .map((invoice) => ({ type: 'Invoice', description: `${invoice.id || 'Invoice'} payment`, date: invoice.dueRaw || '' })) : []),
-    ...(canViewProjects ? projectDeadlines
-      .filter((project) => project.progress < 100)
-      .map((project) => ({ type: 'Project', description: `${project.name} deadline`, date: project.endDate })) : []),
-    ...(canViewBookings ? readRecords('bookings').map((item) => ({ type: 'Booking', description: `${item.id || 'Booking'} appointment`, date: item.date })) : []),
-    ...(canViewOfficeOrders ? readRecords('office-orders').map((item) => ({ type: 'Office order', description: `${item.id || 'Office order'} due`, date: item.date })) : []),
-    ...(canViewWorkers ? contractDeadlines.map((worker) => ({ type: 'Contract', description: `${worker.name} contract`, date: worker.date })) : []),
-  ].filter((item) => {
+  const expiringItems = (summary?.deadlines ?? []).filter((item) => {
+    if (item.type === 'Invoice' && ['paid', 'canceled'].includes((item.status ?? '').toLowerCase())) return false;
+    if (item.type === 'Project' && Number(item.progress) >= 100) return false;
+
     const date = new Date(item.date);
     date.setHours(0, 0, 0, 0);
     return item.date && !Number.isNaN(date.getTime()) && date <= thirtyDaysFromNow;
@@ -136,9 +67,19 @@ export default function DashboardPage() {
     { label: 'Clients', value: clientCount, icon: Users },
     { label: 'Orders', value: orders, icon: ClipboardList },
   ];
+  const isExpiringListScrollable = expiringItems.length > 7;
 
   return (
     <div className="p-8 space-y-6 animate-fade-in">
+      {loadError ? (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <span>{summary ? 'Dashboard refresh failed. Your last loaded data is still shown.' : 'Dashboard data could not be loaded.'}</span>
+          <button type="button" onClick={() => void loadDashboard()} disabled={isLoading} className="font-semibold underline disabled:opacity-60">
+            {isLoading ? 'Retrying…' : 'Retry'}
+          </button>
+        </div>
+      ) : null}
+      {isLoading && !summary ? <p role="status" className="text-sm text-neutral-500">Loading dashboard…</p> : null}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {stats.map(({ label, value, icon: Icon }) => (
           <div key={label} className="rounded-xl border border-neutral-200 bg-white p-5">
@@ -174,9 +115,9 @@ export default function DashboardPage() {
             <h2 className="text-lg font-semibold">Expired or due in 30 days</h2>
           </div>
           {expiringItems.length ? (
-            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-auto lg:block lg:flex-none">
+            <div className={isExpiringListScrollable ? 'max-h-[18rem] overflow-y-auto overflow-x-auto' : 'overflow-x-auto'}>
               <table className="w-full text-left text-sm">
-                <thead><tr className="border-b border-neutral-200 text-xs uppercase tracking-wide text-neutral-400"><th className="pb-3 pr-3">Type</th><th className="pb-3 pr-3">Description</th><th className="pb-3">Due date</th></tr></thead>
+                <thead className={isExpiringListScrollable ? 'sticky top-0 z-10 bg-white' : ''}><tr className="border-b border-neutral-200 text-xs uppercase tracking-wide text-neutral-400"><th className="pb-3 pr-3">Type</th><th className="pb-3 pr-3">Description</th><th className="pb-3">Due date</th></tr></thead>
                 <tbody>{expiringItems.map((item, index) => { const date = new Date(item.date); const expired = date < today; return <tr key={`${item.type}-${item.description}-${index}`} className="border-b border-neutral-100 last:border-0"><td className="py-3 pr-3 font-medium">{item.type}</td><td className="py-3 pr-3 text-neutral-600">{item.description}</td><td className={`py-3 whitespace-nowrap ${expired ? 'font-semibold text-red-600' : 'text-neutral-600'}`}>{expired ? 'Expired' : 'Due'} {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td></tr>; })}</tbody>
               </table>
             </div>
@@ -186,15 +127,6 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-const readRecords = (key: string): Record<string, string>[] => {
-  try {
-    const value = localStorage.getItem(`mg_${key}`);
-    return value ? (JSON.parse(value) as Record<string, string>[]) : [];
-  } catch {
-    return [];
-  }
-};
 
 const formatActivityTime = (value: string) => new Date(value).toLocaleString('en-US', {
   month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',

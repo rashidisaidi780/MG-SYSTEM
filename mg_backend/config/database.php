@@ -15,7 +15,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'mysql'),
+    'default' => env('DB_CONNECTION', 'sqlite'),
 
     /*
     |--------------------------------------------------------------------------
@@ -38,7 +38,7 @@ return [
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DATABASE_URL'),
-            'database' => env('DB_DATABASE', database_path('database.sqlite')),
+            'database' => env('DB_DATABASE', env('DB_BASEPATH', database_path('database.sqlite'))),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
         ],
@@ -76,6 +76,21 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => 'prefer',
+        ],
+
+        'supabase' => [
+            'driver' => 'pgsql',
+            'url' => env('SUPABASE_DB_URL'),
+            'host' => env('SUPABASE_DB_HOST', '127.0.0.1'),
+            'port' => env('SUPABASE_DB_PORT', '5432'),
+            'database' => env('SUPABASE_DB_DATABASE', 'postgres'),
+            'username' => env('SUPABASE_DB_USERNAME', 'postgres'),
+            'password' => env('SUPABASE_DB_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => env('SUPABASE_DB_SEARCH_PATH', 'public'),
+            'sslmode' => env('SUPABASE_DB_SSLMODE', 'require'),
         ],
 
         'sqlsrv' => [

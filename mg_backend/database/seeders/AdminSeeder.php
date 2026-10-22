@@ -20,5 +20,6 @@ class AdminSeeder extends Seeder
             'email' => 'admin@makezy.co.tz',
             'password' => Hash::make('rashid123'),
         ]);
+
     }
 }

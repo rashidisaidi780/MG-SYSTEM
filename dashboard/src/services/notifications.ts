@@ -4,6 +4,8 @@
 
 import { apiClient } from './api';
 
+const notifyUnreadCountChanged = () => window.dispatchEvent(new Event('notifications-updated'));
+
 export interface Notification {
   id: string;
   title: string;
@@ -46,24 +48,29 @@ class NotificationsService {
 
   async create(data: CreateNotificationRequest): Promise<Notification> {
     const response = await apiClient.post<{ data: Notification }>('/notifications', data);
+    notifyUnreadCountChanged();
     return response.data;
   }
 
   async markAsRead(id: string, read = true): Promise<Notification> {
     const response = await apiClient.patch<{ data: Notification }>(`/notifications/${id}`, { read });
+    notifyUnreadCountChanged();
     return response.data;
   }
 
   async markAllAsRead(): Promise<void> {
     await apiClient.post('/notifications/mark-all-read', {});
+    notifyUnreadCountChanged();
   }
 
   async delete(id: string): Promise<void> {
     await apiClient.delete(`/notifications/${id}`);
+    notifyUnreadCountChanged();
   }
 
   async deleteAll(): Promise<void> {
     await apiClient.delete('/notifications');
+    notifyUnreadCountChanged();
   }
 
   async getUnreadCount(): Promise<{ count: number }> {

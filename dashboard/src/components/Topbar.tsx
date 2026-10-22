@@ -14,9 +14,10 @@ interface TopbarProps {
   onToggleDarkMode: () => void;
   onOpenMenu: () => void;
   sidebarOpen: boolean;
+  unreadNotificationCount: number;
 }
 
-export default function Topbar({ title, subtitle, onNavigate, onRefresh, isLoading, searchQuery = '', onSearchChange, isDarkMode, onToggleDarkMode, onOpenMenu, sidebarOpen }: TopbarProps) {
+export default function Topbar({ title, subtitle, onNavigate, onRefresh, isLoading, searchQuery = '', onSearchChange, isDarkMode, onToggleDarkMode, onOpenMenu, sidebarOpen, unreadNotificationCount }: TopbarProps) {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   return (
@@ -71,12 +72,18 @@ export default function Topbar({ title, subtitle, onNavigate, onRefresh, isLoadi
           />
         </button>
         <button
+          type="button"
           onClick={() => onNavigate?.('notifications')}
           className="relative p-2 rounded-lg hover:bg-neutral-100 transition-colors"
-          aria-label="Open notifications"
+          aria-label={unreadNotificationCount > 0 ? `Open notifications, ${unreadNotificationCount} unread` : 'Open notifications'}
+          title={unreadNotificationCount > 0 ? `${unreadNotificationCount} unread notifications` : 'Notifications'}
         >
           <Bell size={18} className="text-neutral-600" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-black" />
+          {unreadNotificationCount > 0 ? (
+            <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-red-600 px-1.5 py-0.5 text-center text-[10px] font-bold leading-4 text-white">
+              {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
+            </span>
+          ) : null}
         </button>
         </div>
       </div>

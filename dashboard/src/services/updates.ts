@@ -9,6 +9,7 @@ export interface UpdatePost {
   createdAt: string;
   durationDays: number;
   expiresAt: string;
+  mediaType: 'image' | 'video' | null;
 }
 
 interface UpdateApiRecord {
@@ -32,7 +33,14 @@ const toUpdate = (record: UpdateApiRecord): UpdatePost => ({
   id: String(record.id),
   title: record.update_title,
   description: record.update_description,
-  image: record.update_image,
+  image: record.update_image?.startsWith('events/')
+    ? `/updates/${record.id}/media`
+    : record.update_image,
+  mediaType: record.update_image?.startsWith('events/')
+    ? 'video'
+    : record.update_image
+      ? 'image'
+      : null,
   isNew: record.is_new,
   createdAt: record.created_at || record.update_date,
   durationDays: record.update_duration ?? 1,
@@ -45,17 +53,19 @@ class UpdatesService {
     return response.data.map(toUpdate);
   }
 
-  async create(data: Omit<UpdatePost, 'id' | 'createdAt' | 'expiresAt'>): Promise<UpdatePost> {
-    const response = await apiClient.post<{ data: UpdateApiRecord }>('/updates', {
-      update_id: `UPD-${Date.now()}`,
-      update_title: data.title,
-      update_description: data.description,
-      update_image: data.image,
-      update_date: new Date().toISOString().slice(0, 10),
-      update_duration: data.durationDays,
-      is_new: data.isNew,
-      update_status: 'active',
-    });
+  async create(data: Omit<UpdatePost, 'id' | 'createdAt' | 'expiresAt' | 'mediaType'> & { mediaFile?: File | null }): Promise<UpdatePost> {
+    const formData = new FormData();
+    formData.set('update_id', `UPD-${Date.now()}`);
+    formData.set('update_title', data.title);
+    formData.set('update_description', data.description);
+    formData.set('update_image', data.image || '');
+    formData.set('update_date', new Date().toISOString().slice(0, 10));
+    formData.set('update_duration', String(data.durationDays));
+    formData.set('is_new', data.isNew ? '1' : '0');
+    formData.set('update_status', 'active');
+    if (data.mediaFile) formData.set('media', data.mediaFile);
+
+    const response = await apiClient.postForm<{ data: UpdateApiRecord }>('/updates', formData);
     return toUpdate(response.data);
   }
 
@@ -68,6 +78,10 @@ class UpdatesService {
 
   async delete(id: string): Promise<void> {
     await apiClient.delete(`/updates/${id}`);
+  }
+
+  async downloadMedia(id: string): Promise<Blob> {
+    return apiClient.download(`/updates/${id}/media?download=1`);
   }
 }
 
