@@ -1,10 +1,12 @@
-import { useState, useMemo, useEffect } from 'react';
-import { Plus, MoreHorizontal, Mail, Phone, Edit3, Trash2, Building2 } from 'lucide-react';
+import { useState, useMemo, useEffect, type ChangeEvent, type KeyboardEvent } from 'react';
+import { Download, FileText, Plus, Mail, Phone, Trash2, Building2, Upload } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
-import workersService, { type Worker as ServiceWorker } from '@/services/workers';
+import workersService, { type WorkerDocument } from '@/services/workers';
 import { useDepartmentOptions } from '@/utils/departments';
+import { authService } from '@/services/auth';
+import { CardGridLoadingState, ListLoadingState } from '@/components/LoadingState';
 
 interface Worker {
   id: string;
@@ -25,12 +27,6 @@ interface Worker {
 }
 
 const initialWorkers: Worker[] = [];
-
-const statusStyles: Record<Worker['status'], string> = {
-  Active: 'bg-green-50 text-green-700',
-  'On Leave': 'bg-amber-50 text-amber-700',
-  Contract: 'bg-blue-50 text-blue-700',
-};
 
 const emptyWorker: Worker = {
   id: '',
@@ -65,26 +61,67 @@ const getWorkerSaveError = (error: unknown) => {
     const details = (error as { details?: { errors?: Record<string, string[]> } }).details;
     const messages = details?.errors ? Object.values(details.errors).flat() : [];
     if (messages.length) return messages.join(' ');
+    if (details && 'message' in details && typeof details.message === 'string') return details.message;
   }
   return error instanceof Error && error.message ? error.message : 'Unable to save worker to the server';
 };
 
+const getDocumentDeleteError = (error: unknown) => {
+  if (typeof error === 'object' && error !== null && 'details' in error) {
+    const details = error.details;
+    if (typeof details === 'object' && details !== null && 'message' in details && typeof details.message === 'string') {
+      return details.message;
+    }
+  }
+  return 'Unable to delete this worker document';
+};
+
 export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [workers, setWorkers] = useState<Worker[]>(initialWorkers);
+  const [isLoadingWorkers, setIsLoadingWorkers] = useState(true);
   const [departmentOptions] = useDepartmentOptions();
   const [formOpen, setFormOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [formWorker, setFormWorker] = useState<Worker>(emptyWorker);
   const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
+  const [workerDocuments, setWorkerDocuments] = useState<WorkerDocument[]>([]);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
+  const [isUploadingDocuments, setIsUploadingDocuments] = useState(false);
+  const [downloadingDocumentId, setDownloadingDocumentId] = useState<number | null>(null);
+  const [deletingDocumentId, setDeletingDocumentId] = useState<number | null>(null);
+  const selectedWorkerId = selectedWorker?.id;
   const [pendingDeleteWorkerId, setPendingDeleteWorkerId] = useState<string | null>(null);
   const { showToast } = useToast();
 
   useEffect(() => {
     void workersService.getAll()
       .then((loaded) => setWorkers(loaded.map((worker) => ({ ...worker, contractStartDate: worker.hireDate, tinNumber: worker.tinNumber ?? '', nidaNumber: worker.nidaNumber ?? '', otherPhone: worker.otherPhone ?? '', salary: worker.salary ?? '', durationValue: worker.durationValue ?? 1, durationUnit: 'year' as const, contractEndDate: worker.contractEndDate ?? '', status: worker.status === 'Inactive' ? 'Contract' : worker.status }))))
-      .catch(() => showToast('Unable to load workers from the server', 'error'));
+      .catch(() => showToast('Unable to load workers from the server', 'error'))
+      .finally(() => setIsLoadingWorkers(false));
   }, [showToast]);
+
+  useEffect(() => {
+    if (!detailOpen || !selectedWorkerId) return undefined;
+
+    let isActive = true;
+    setWorkerDocuments([]);
+    setIsLoadingDocuments(true);
+    void workersService.getDocuments(selectedWorkerId)
+      .then((documents) => {
+        if (isActive) setWorkerDocuments(documents);
+      })
+      .catch(() => {
+        if (isActive) showToast('Unable to load this worker’s documents', 'error');
+      })
+      .finally(() => {
+        if (isActive) setIsLoadingDocuments(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [detailOpen, selectedWorkerId, showToast]);
 
   const filteredWorkers = useMemo(() => {
     if (!searchQuery.trim()) return workers;
@@ -121,6 +158,69 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
   const closeDetail = () => {
     setDetailOpen(false);
     setSelectedWorker(null);
+    setWorkerDocuments([]);
+  };
+
+  const handleDocumentUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (!selectedWorker || files.length === 0) return;
+
+    if (files.length > 5 || files.some((file) => file.type !== 'application/pdf' || !file.name.toLowerCase().endsWith('.pdf'))) {
+      showToast('Select up to 5 PDF files only', 'error');
+      return;
+    }
+
+    if (files.some((file) => file.size > 20 * 1024 * 1024) || files.reduce((total, file) => total + file.size, 0) > 30 * 1024 * 1024) {
+      showToast('Each PDF must be 20MB or less and the combined total must not exceed 30MB', 'error');
+      return;
+    }
+
+    setIsUploadingDocuments(true);
+    void workersService.uploadDocuments(selectedWorker.id, files)
+      .then((uploadedDocuments) => {
+        setWorkerDocuments((current) => [...uploadedDocuments, ...current]);
+        showToast(`${uploadedDocuments.length} PDF document${uploadedDocuments.length === 1 ? '' : 's'} uploaded`, 'success');
+      })
+      .catch(() => showToast('Unable to upload worker documents', 'error'))
+      .finally(() => setIsUploadingDocuments(false));
+  };
+
+  const downloadDocument = async (document: WorkerDocument) => {
+    if (!selectedWorker) return;
+    setDownloadingDocumentId(document.id);
+    try {
+      const blob = await workersService.downloadDocument(selectedWorker.id, document.id);
+      const url = URL.createObjectURL(blob);
+      const link = window.document.createElement('a');
+      link.href = url;
+      link.download = document.original_name;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      showToast('Unable to download this PDF document', 'error');
+    } finally {
+      setDownloadingDocumentId(null);
+    }
+  };
+
+  const deleteDocument = (document: WorkerDocument) => {
+    if (!selectedWorker || deletingDocumentId !== null) return;
+    setDeletingDocumentId(document.id);
+    void workersService.deleteDocument(selectedWorker.id, document.id)
+      .then(() => {
+        setWorkerDocuments((current) => current.filter((item) => item.id !== document.id));
+        showToast('Worker document deleted', 'success');
+      })
+      .catch((error: unknown) => showToast(getDocumentDeleteError(error), 'error'))
+      .finally(() => setDeletingDocumentId(null));
+  };
+
+  const openWorkerCardWithKeyboard = (event: KeyboardEvent<HTMLElement>, worker: Worker) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openDetail(worker);
+    }
   };
 
   const handleFormChange = (field: keyof Worker, value: string | number) => {
@@ -183,10 +283,15 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      {isLoadingWorkers ? <CardGridLoadingState label="Loading workers" /> : <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {filteredWorkers.map((worker) => (
-          <div
+          <article
             key={worker.id}
+            role="button"
+            tabIndex={0}
+            aria-label={`Open ${worker.name} details and documents`}
+            onClick={() => openDetail(worker)}
+            onKeyDown={(event) => openWorkerCardWithKeyboard(event, worker)}
             className="bg-white border border-neutral-200 rounded-3xl p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg"
           >
             <div className="flex items-start justify-between gap-3 mb-4">
@@ -204,12 +309,6 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
                   <p className="text-xs text-neutral-500">{worker.status}</p>
                 </div>
               </div>
-              <button
-                onClick={() => openDetail(worker)}
-                className="rounded-2xl border border-neutral-200 px-3 py-2 text-neutral-600 hover:bg-neutral-100 transition"
-              >
-                Details
-              </button>
             </div>
 
             <div className="space-y-3 text-sm text-neutral-600">
@@ -241,9 +340,9 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
                 <span>{worker.contractEndDate}</span>
               </div>
             </div>
-          </div>
+          </article>
         ))}
-      </div>
+      </div>}
 
       <ConfirmDialog
         open={pendingDeleteWorkerId !== null}
@@ -259,12 +358,17 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
       />
 
       {detailOpen && selectedWorker ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-[32px] bg-white p-8 shadow-2xl animate-book-modal">
-            <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-5 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="worker-details-title"
+            className="max-h-[calc(100dvh-2.5rem)] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-[32px] bg-white p-5 shadow-2xl animate-book-modal sm:p-8"
+          >
+            <div className="sticky top-0 z-10 -mx-5 -mt-5 mb-6 flex items-start justify-between gap-4 border-b border-neutral-100 bg-white px-5 py-4 backdrop-blur sm:-mx-8 sm:-mt-8 sm:px-8">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-neutral-400">Worker details</p>
-                <h3 className="text-2xl font-semibold mt-2">{selectedWorker.name}</h3>
+                <h3 id="worker-details-title" className="mt-2 text-2xl font-semibold">{selectedWorker.name}</h3>
                 <p className="text-sm text-neutral-500 mt-1">{selectedWorker.status}</p>
               </div>
               <div className="flex items-center gap-2">
@@ -330,7 +434,72 @@ export default function WorkersPage({ searchQuery = '' }: { searchQuery?: string
               </p>
             </div>
 
-            <div className="mt-8 flex justify-end gap-3">
+            <section className="mt-6 rounded-3xl border border-neutral-200 p-5 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h4 className="font-semibold text-neutral-900">Worker documents</h4>
+                  <p className="mt-1 text-xs text-neutral-500">PDF only · up to 5 files, 30MB combined</p>
+                </div>
+                {authService.hasPermission('Workers', 'Edit') ? (
+                  <label className={`inline-flex cursor-pointer items-center gap-2 rounded-2xl bg-black px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-neutral-800 ${isUploadingDocuments ? 'pointer-events-none opacity-50' : ''}`}>
+                    <Upload size={16} />
+                    {isUploadingDocuments ? 'Uploading...' : 'Upload PDFs'}
+                    <input
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      multiple
+                      disabled={isUploadingDocuments}
+                      onChange={handleDocumentUpload}
+                      className="sr-only"
+                    />
+                  </label>
+                ) : null}
+              </div>
+              {isLoadingDocuments ? (
+                <ListLoadingState label="Loading worker documents" count={2} />
+              ) : workerDocuments.length ? (
+                <ul className="mt-4 divide-y divide-neutral-100">
+                  {workerDocuments.map((document) => (
+                    <li key={document.id} className="flex items-center justify-between gap-3 py-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <FileText size={18} className="shrink-0 text-red-600" />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-neutral-800">{document.original_name}</p>
+                          <p className="text-xs text-neutral-500">{(document.file_size / (1024 * 1024)).toFixed(2)} MB</p>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          aria-label={`Download ${document.original_name}`}
+                          onClick={() => void downloadDocument(document)}
+                          disabled={downloadingDocumentId === document.id}
+                          className="rounded-xl border border-neutral-200 p-2 text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                        >
+                          <Download size={16} />
+                        </button>
+                        {authService.hasPermission('Workers', 'Edit') ? (
+                          <button
+                            type="button"
+                            data-mutation-control
+                            aria-label={`Delete ${document.original_name}`}
+                            onClick={() => deleteDocument(document)}
+                            disabled={deletingDocumentId === document.id}
+                            className="rounded-xl border border-red-200 p-2 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        ) : null}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-4 text-sm text-neutral-500">No documents uploaded for this worker yet.</p>
+              )}
+            </section>
+
+            <div className="sticky bottom-0 -mx-5 -mb-5 mt-6 flex justify-end gap-3 border-t border-neutral-100 bg-white px-5 py-4 backdrop-blur sm:-mx-8 sm:-mb-8 sm:px-8">
               <button
                 onClick={closeDetail}
                 className="rounded-3xl border border-neutral-200 px-5 py-3 text-sm font-medium text-neutral-600 hover:bg-neutral-100 transition"

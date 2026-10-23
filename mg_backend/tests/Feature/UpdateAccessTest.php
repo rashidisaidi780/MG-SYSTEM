@@ -30,6 +30,7 @@ class UpdateAccessTest extends TestCase
             $table->string('update_title');
             $table->text('update_description');
             $table->text('update_image')->nullable();
+            $table->string('update_link', 2048)->nullable();
             $table->date('update_date');
             $table->unsignedInteger('update_duration')->nullable();
             $table->string('update_status')->nullable();
@@ -121,5 +122,48 @@ class UpdateAccessTest extends TestCase
         $this->get("/api/updates/{$id}/media?download=1")
             ->assertOk()
             ->assertHeader('content-disposition', 'attachment; filename='.basename($mediaPath));
+    }
+
+    public function test_event_editors_can_publish_links_for_other_users_to_open(): void
+    {
+        Sanctum::actingAs((new User)->newFromBuilder([
+            'id' => 1,
+            'permissions' => '{"Event & Updates":"Edit"}',
+        ]));
+
+        $this->postJson('/api/updates', [
+            'update_id' => 'UPD-LINK',
+            'update_title' => 'Event registration',
+            'update_description' => 'Register at the link below',
+            'update_link' => 'https://example.com/register',
+            'update_date' => now()->toDateString(),
+        ])->assertCreated()
+            ->assertJsonPath('data.update_link', 'https://example.com/register');
+
+        Sanctum::actingAs((new User)->newFromBuilder([
+            'id' => 2,
+            'permissions' => '{}',
+        ]));
+
+        $this->getJson('/api/updates')
+            ->assertOk()
+            ->assertJsonPath('data.0.update_link', 'https://example.com/register');
+    }
+
+    public function test_event_links_only_allow_http_and_https_urls(): void
+    {
+        Sanctum::actingAs((new User)->newFromBuilder([
+            'id' => 1,
+            'permissions' => '{"Event & Updates":"Edit"}',
+        ]));
+
+        $this->postJson('/api/updates', [
+            'update_id' => 'UPD-INVALID-LINK',
+            'update_title' => 'Unsafe link',
+            'update_description' => 'Invalid protocol',
+            'update_link' => 'javascript:alert(1)',
+            'update_date' => now()->toDateString(),
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('update_link');
     }
 }

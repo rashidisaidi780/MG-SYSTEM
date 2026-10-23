@@ -9,6 +9,7 @@ import clientsService from '@/services/clients';
 import { adminService } from '@/services/admin';
 import { apiClient } from '@/services/api';
 import { authService } from '@/services/auth';
+import { TableLoadingState } from '@/components/LoadingState';
 
 interface ClientOption {
   id: string;
@@ -112,6 +113,7 @@ const escapeHtml = (value: string | number | null | undefined) => String(value ?
 
 export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [projectList, setProjectList] = useState<Project[]>(initialProjects);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [clients, setClients] = useState<ClientOption[]>(initialClients);
   const [leaders, setLeaders] = useState<{ id: string; name: string }[]>([]);
@@ -128,7 +130,10 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
   }, [searchQuery]);
 
   useEffect(() => {
-    void projectsService.getAll().then((loaded) => setProjectList(loaded.map((project) => ({ ...project, clientId: project.client, budget: String(project.budget), lead: '' })))).catch(() => showToast('Unable to load projects from the server', 'error'));
+    void projectsService.getAll()
+      .then((loaded) => setProjectList(loaded.map((project) => ({ ...project, clientId: project.client, budget: String(project.budget), lead: '' }))))
+      .catch(() => showToast('Unable to load projects from the server', 'error'))
+      .finally(() => setIsLoadingProjects(false));
     const loadLeaders = async () => {
       try {
         const storedUser = authService.getStoredUser();
@@ -329,7 +334,9 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
       </div>
 
       <div className="bg-white border border-neutral-200 rounded-3xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
+        {isLoadingProjects && projectList.length === 0 ? (
+          <TableLoadingState columns={5} label="Loading projects" />
+        ) : <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-200 bg-neutral-50 text-left">
@@ -369,7 +376,7 @@ export default function ProjectsPage({ searchQuery = '' }: { searchQuery?: strin
               ))}
             </tbody>
           </table>
-        </div>
+        </div>}
       </div>
 
       <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">

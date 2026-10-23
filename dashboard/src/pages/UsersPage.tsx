@@ -6,6 +6,7 @@ import { notifySystem } from '@/utils/systemNotifications';
 import logoImg from '@/assets/logo.jpeg';
 import { adminService } from '@/services/admin';
 import { useDepartmentOptions } from '@/utils/departments';
+import { CardGridLoadingState } from '@/components/LoadingState';
 
 type AccessLevel = 'None' | 'View' | 'Edit' | 'Both';
 
@@ -373,8 +374,7 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
         </div>
       </div>
 
-      {isLoading ? <p className="text-sm text-neutral-500">Loading users...</p> : null}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      {isLoading ? <CardGridLoadingState label="Loading users" /> : <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {filteredUsers.map((user) => (
           <div
             key={user.id}
@@ -449,7 +449,7 @@ export default function UsersPage({ searchQuery = '' }: { searchQuery?: string }
             </div>
           </div>
         ))}
-      </div>
+      </div>}
 
       <ConfirmDialog
         open={pendingDeleteUserId !== null}

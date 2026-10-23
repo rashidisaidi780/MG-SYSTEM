@@ -3,6 +3,7 @@ import { Bell, CheckCircle } from 'lucide-react';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/contexts/ToastContext';
 import notificationsService, { type Notification } from '@/services/notifications';
+import { ListLoadingState } from '@/components/LoadingState';
 
 const formatTime = (value: string) => {
   const date = new Date(value);
@@ -69,8 +70,7 @@ export default function NotificationsPage({ searchQuery = '' }: { refreshKey?: n
         </div>
       </div>
 
-      {isLoading ? <p className="text-sm text-neutral-500">Loading notifications...</p> : null}
-      <div className="space-y-3">
+      {isLoading ? <ListLoadingState label="Loading notifications" /> : <div className="space-y-3">
         {filteredItems.map((notification) => (
           <div key={notification.id} className={`flex items-start justify-between gap-4 rounded-lg border p-4 ${notification.read ? 'bg-neutral-50 border-neutral-100' : 'bg-white border-neutral-200'}`}>
             <div className="flex-1">
@@ -89,7 +89,7 @@ export default function NotificationsPage({ searchQuery = '' }: { refreshKey?: n
           </div>
         ))}
         {!isLoading && filteredItems.length === 0 ? <div className="p-6 text-center text-sm text-neutral-500">No notifications</div> : null}
-      </div>
+      </div>}
 
       <ConfirmDialog
         open={confirmDelete !== null}

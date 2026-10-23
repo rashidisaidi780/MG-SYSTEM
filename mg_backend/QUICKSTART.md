@@ -183,9 +183,26 @@ tail -f storage/logs/laravel.log
 
 ### Event video uploads
 
-Users with edit access to **Event & Updates** can attach MP4, WebM, or MOV videos up to 30 MB. Uploaded videos are stored privately under `storage/app/private/events` and can be downloaded by authenticated users with event access.
+Users with edit access to **Event & Updates** can attach MP4, WebM, or MOV videos up to 30 MB. Uploaded videos are stored under `storage/app/events`, outside the public web root, and can be downloaded by authenticated users with event access.
 
 Make sure PHP is configured with `upload_max_filesize` of at least `30M` and `post_max_size` of at least `32M`. The PHP upload directory and Laravel `storage` directory must also be writable by the web server.
+
+Event posts can also include an optional HTTP or HTTPS link. It is shown to viewers as an **Open event link** action and opens in a new tab.
+
+### Worker PDF documents
+
+Users with edit access to **Workers** can upload up to 5 PDF documents at a time for a saved worker. Each PDF may be up to 20 MB, with a 30 MB combined limit per upload. New PDF contents and document records are saved in both Supabase and SQLite, and are served through authenticated, permission-checked routes. Base64 storage increases the PDF data size by about one third in each database. Configure PHP with `upload_max_filesize` of at least `20M` and `post_max_size` of at least `32M`.
+
+Existing PDFs uploaded before database storage was enabled can be previewed and backfilled from private file storage with:
+
+```bash
+php artisan worker-documents:backfill-databases
+php artisan worker-documents:backfill-databases --force
+```
+
+The first command is read-only; the second stores the existing PDF contents in both databases.
+
+The PDF bytes are Base64-encoded in each database, increasing their storage size by about one third. Listing documents returns metadata only; PDF contents are sent only through the authenticated download endpoint.
 
 ## Configuration
 
@@ -196,9 +213,11 @@ Make sure PHP is configured with `upload_max_filesize` of at least `30M` and `po
 
 ### Database
 - File: `config/database.php`
-- SQLite uses the local file configured by `DB_BASEPATH` (or `DB_DATABASE`).
+- SQLite uses the local file configured by `DB_BASEPATH` (or `DB_DATABASE`). Relative paths are resolved from the backend project directory so the database remains available regardless of the server's working directory.
 - Supabase is a separate PostgreSQL connection named `supabase`, configured with `SUPABASE_DB_*`.
 - The application uses the connection named by `DB_CONNECTION`. Laravel commands can address a connection explicitly with `--database=sqlite` or `--database=supabase`.
+- Worker create, update, and delete requests write to Supabase first, then mirror the same worker to SQLite by `worker_id`. If the SQLite mirror fails, the API reports that Supabase already changed; check `storage/logs/laravel.log` and reconcile before retrying. Department IDs are matched by the stable department code, not assumed to match between databases.
+- To preview or insert existing Supabase workers missing from SQLite, run `php artisan workers:mirror-to-sqlite` and then `php artisan workers:mirror-to-sqlite --force`. The command inserts missing worker IDs only and never overwrites existing SQLite worker records.
 
 ### Move the existing SQLite data to Supabase
 

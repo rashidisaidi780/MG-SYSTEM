@@ -5,6 +5,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import departmentsService from '@/services/departments';
 import { usePersistentState } from '@/utils/persistentState';
+import { CardGridLoadingState } from '@/components/LoadingState';
 
 interface Department {
   id: string;
@@ -131,8 +132,7 @@ export default function DepartmentsPage({ searchQuery = '' }: { searchQuery?: st
         </button>
       </div>
 
-      {isLoading ? <p className="text-sm text-neutral-500">Loading departments...</p> : null}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {isLoading ? <CardGridLoadingState label="Loading departments" /> : <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {filteredDepartments.map((department) => (
           <div key={department.id} className="rounded-xl border border-neutral-200 bg-white p-5 transition-all hover:-translate-y-0.5 hover:shadow-sm">
             <div className="flex items-start justify-between gap-3">
@@ -157,7 +157,7 @@ export default function DepartmentsPage({ searchQuery = '' }: { searchQuery?: st
             </div>
           </div>
         ))}
-      </div>
+      </div>}
 
       <ConfirmDialog
         open={pendingDeleteId !== null}

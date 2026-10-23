@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Sidebar, { type PageId } from '@/components/Sidebar';
 import Topbar from '@/components/Topbar';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import ToastContainer from '@/components/ToastContainer';
+import GlobalProgressIndicator from '@/components/GlobalProgressIndicator';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { authService, type AuthUser } from '@/services';
 import notificationsService from '@/services/notifications';
@@ -54,7 +55,14 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<StoredUser | null>(() => authService.getStoredUser());
   const [page, setPage] = useState<PageId>(() => authService.isAuthenticated() ? 'dashboard' : 'signin');
   const [isLoading, setIsLoading] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [visitedPages, setVisitedPages] = useState<PageId[]>(() => (
+    authService.isAuthenticated() ? ['dashboard'] : []
+  ));
+  const [pageRefreshKeys, setPageRefreshKeys] = useState<Partial<Record<PageId, number>>>({});
+  const refreshInProgress = useRef(false);
+  const refreshRequestIds = useRef(new Set<string>());
+  const refreshSawRequest = useRef(false);
+  const refreshCompletionTimer = useRef<number | null>(null);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -70,14 +78,71 @@ export default function App() {
 
   useEffect(() => {
     const handleAuthExpired = () => {
+      refreshInProgress.current = false;
+      if (refreshCompletionTimer.current !== null) {
+        window.clearTimeout(refreshCompletionTimer.current);
+        refreshCompletionTimer.current = null;
+      }
+      setIsLoading(false);
       setCurrentUser(null);
       setPage('signin');
+      setVisitedPages([]);
       localStorage.removeItem(LAST_ACTIVITY_KEY);
       localStorage.removeItem('mg_current_page');
     };
 
     window.addEventListener('auth-expired', handleAuthExpired);
     return () => window.removeEventListener('auth-expired', handleAuthExpired);
+  }, []);
+
+  useEffect(() => {
+    const handleApiRequestProgress = (event: Event) => {
+      const detail = (event as CustomEvent<{
+        activeRequests: number;
+        requestId?: string;
+        phase?: 'started' | 'finished';
+      }>).detail;
+      const { requestId, phase } = detail;
+
+      if (!refreshInProgress.current) return;
+
+      if (requestId && phase === 'started') {
+        if (refreshCompletionTimer.current !== null) {
+          window.clearTimeout(refreshCompletionTimer.current);
+          refreshCompletionTimer.current = null;
+        }
+        refreshSawRequest.current = true;
+        refreshRequestIds.current.add(requestId);
+      }
+
+      if (requestId && phase === 'finished') {
+        refreshRequestIds.current.delete(requestId);
+      }
+
+      if (refreshSawRequest.current && refreshRequestIds.current.size === 0) {
+        refreshInProgress.current = false;
+        setIsLoading(false);
+        return;
+      }
+
+      if (!refreshSawRequest.current && refreshCompletionTimer.current === null) {
+        refreshCompletionTimer.current = window.setTimeout(() => {
+          if (refreshSawRequest.current || !refreshInProgress.current) return;
+          refreshInProgress.current = false;
+          refreshCompletionTimer.current = null;
+          setIsLoading(false);
+        }, 750);
+      }
+    };
+
+    window.addEventListener('api-request-progress', handleApiRequestProgress);
+    return () => {
+      window.removeEventListener('api-request-progress', handleApiRequestProgress);
+      if (refreshCompletionTimer.current !== null) {
+        window.clearTimeout(refreshCompletionTimer.current);
+        refreshCompletionTimer.current = null;
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -170,6 +235,7 @@ export default function App() {
 
   const handleSignIn = (user: AuthUser) => {
     setCurrentUser(user);
+    setVisitedPages(['dashboard']);
     localStorage.setItem(LAST_ACTIVITY_KEY, String(Date.now()));
     localStorage.setItem('mg_current_page', 'dashboard');
     setPage('dashboard');
@@ -180,17 +246,39 @@ export default function App() {
       setLogoutConfirmOpen(true);
       return;
     }
+    if (nextPage !== page && refreshInProgress.current) {
+      refreshInProgress.current = false;
+      refreshRequestIds.current.clear();
+      refreshSawRequest.current = false;
+      if (refreshCompletionTimer.current !== null) {
+        window.clearTimeout(refreshCompletionTimer.current);
+        refreshCompletionTimer.current = null;
+      }
+      setIsLoading(false);
+    }
     localStorage.setItem('mg_current_page', nextPage);
+    setVisitedPages((current) => current.includes(nextPage) ? current : [...current, nextPage]);
     setPage(nextPage);
   };
 
   const handleRefresh = () => {
+    if (refreshInProgress.current) return;
+
+    refreshInProgress.current = true;
+    refreshRequestIds.current.clear();
+    refreshSawRequest.current = false;
     setIsLoading(true);
-    const t = setTimeout(() => {
-      setRefreshKey((k) => k + 1);
+    setPageRefreshKeys((current) => ({
+      ...current,
+      [page]: (current[page] ?? 0) + 1,
+    }));
+
+    refreshCompletionTimer.current = window.setTimeout(() => {
+      if (refreshSawRequest.current || !refreshInProgress.current) return;
+      refreshCompletionTimer.current = null;
+      refreshInProgress.current = false;
       setIsLoading(false);
-      clearTimeout(t);
-    }, 1200);
+    }, 750);
   };
 
   const closeSidebar = () => {
@@ -236,12 +324,18 @@ export default function App() {
   };
 
   if (page === 'signin') {
-    return <SignInPage onSignIn={handleSignIn} />;
+    return (
+      <>
+        <GlobalProgressIndicator />
+        <SignInPage onSignIn={handleSignIn} />
+      </>
+    );
   }
 
   return (
     <ToastProvider>
       <>
+        <GlobalProgressIndicator />
         <div className="min-h-screen bg-white flex">
         <Sidebar
           active={page}
@@ -261,20 +355,30 @@ export default function App() {
               setMobileMenuOpen((isOpen) => !isOpen);
             }
           }} />
-          <div key={`${page}-${refreshKey}`} onClickCapture={blockReadOnlyMutation} className="min-h-[calc(100vh-4rem)] animate-book-page">
-            {page === 'dashboard' && <DashboardPage />}
-            {page === 'events' && <EventsPage searchQuery={searchQuery} />}
-            {page === 'notifications' && <NotificationsPage refreshKey={refreshKey} />}
-            {page === 'projects' && <ProjectsPage searchQuery={searchQuery} />}
-            {page === 'clients' && <ClientsPage searchQuery={searchQuery} />}
-            {page === 'contracts' && <ContractsPage />}
-            {page === 'users' && <UsersPage searchQuery={searchQuery} />}
-            {page === 'departments' && <DepartmentsPage searchQuery={searchQuery} />}
-            {page === 'workers' && <WorkersPage searchQuery={searchQuery} />}
-            {page === 'invoices' && <InvoicesPage searchQuery={searchQuery} />}
-            {page === 'bookings' && <BookingsPage searchQuery={searchQuery} />}
-            {page === 'officeOrders' && <OfficeOrdersPage searchQuery={searchQuery} />}
-          </div>
+          {visitedPages.map((visitedPage) => (
+            <div
+              key={visitedPage}
+              hidden={page !== visitedPage}
+              aria-hidden={page !== visitedPage}
+              onClickCapture={blockReadOnlyMutation}
+              className={`min-h-[calc(100vh-4rem)] ${page === visitedPage ? 'animate-book-page' : ''}`}
+            >
+              <div key={pageRefreshKeys[visitedPage] ?? 0}>
+                {visitedPage === 'dashboard' && <DashboardPage />}
+                {visitedPage === 'events' && <EventsPage searchQuery={searchQuery} />}
+                {visitedPage === 'notifications' && <NotificationsPage />}
+                {visitedPage === 'projects' && <ProjectsPage searchQuery={searchQuery} />}
+                {visitedPage === 'clients' && <ClientsPage searchQuery={searchQuery} />}
+                {visitedPage === 'contracts' && <ContractsPage />}
+                {visitedPage === 'users' && <UsersPage searchQuery={searchQuery} />}
+                {visitedPage === 'departments' && <DepartmentsPage searchQuery={searchQuery} />}
+                {visitedPage === 'workers' && <WorkersPage searchQuery={searchQuery} />}
+                {visitedPage === 'invoices' && <InvoicesPage searchQuery={searchQuery} />}
+                {visitedPage === 'bookings' && <BookingsPage searchQuery={searchQuery} />}
+                {visitedPage === 'officeOrders' && <OfficeOrdersPage searchQuery={searchQuery} />}
+              </div>
+            </div>
+          ))}
         </main>
       </div>
 

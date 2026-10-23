@@ -6,6 +6,7 @@ import { notifySystem } from '@/utils/systemNotifications';
 import logoImg from '@/assets/logo.jpeg';
 import clientsService, { type Client as ServiceClient } from '@/services/clients';
 import { authService } from '@/services/auth';
+import { CardGridLoadingState } from '@/components/LoadingState';
 
 interface Client {
   id: string;
@@ -257,8 +258,7 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
         </p>
       ) : null}
 
-      {isLoading ? <p className="text-sm text-neutral-500">Loading clients...</p> : null}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+      {isLoading ? <CardGridLoadingState label="Loading clients" /> : <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {filteredClients.map((client) => (
           <div
             key={client.id}
@@ -336,7 +336,7 @@ export default function ClientsPage({ searchQuery = '' }: { searchQuery?: string
             </div>
           </div>
         ))}
-      </div>
+      </div>}
 
       <ConfirmDialog
         open={pendingDeleteClientId !== null}

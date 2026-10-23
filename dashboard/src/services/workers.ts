@@ -74,6 +74,13 @@ export interface UpdateWorkerRequest {
   contractEndDate?: string;
 }
 
+export interface WorkerDocument {
+  id: number;
+  original_name: string;
+  file_size: number;
+  created_at: string;
+}
+
 class WorkersService {
   async getAll(params?: { search?: string; department?: string; status?: string; page?: number; limit?: number }): Promise<Worker[]> {
     const queryParams = new URLSearchParams();
@@ -135,6 +142,26 @@ class WorkersService {
 
   async delete(id: string): Promise<void> {
     await apiClient.delete(`/workers/${id}`);
+  }
+
+  async getDocuments(workerId: string): Promise<WorkerDocument[]> {
+    const response = await apiClient.get<{ data: WorkerDocument[] }>(`/workers/${workerId}/documents`);
+    return response.data;
+  }
+
+  async uploadDocuments(workerId: string, files: File[]): Promise<WorkerDocument[]> {
+    const formData = new FormData();
+    files.forEach((file) => formData.append('documents[]', file));
+    const response = await apiClient.postForm<{ data: WorkerDocument[] }>(`/workers/${workerId}/documents`, formData);
+    return response.data;
+  }
+
+  async downloadDocument(workerId: string, documentId: number): Promise<Blob> {
+    return apiClient.download(`/workers/${workerId}/documents/${documentId}`);
+  }
+
+  async deleteDocument(workerId: string, documentId: number): Promise<void> {
+    await apiClient.delete(`/workers/${workerId}/documents/${documentId}`);
   }
 
   async updateStatus(id: string, status: Worker['status']): Promise<Worker> {

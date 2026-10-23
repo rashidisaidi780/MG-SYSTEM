@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
-import { Download, ImagePlus, Plus, Trash2 } from 'lucide-react';
+import { Download, ExternalLink, ImagePlus, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import updatesService, { type UpdatePost } from '@/services/updates';
+import { CardGridLoadingState } from '@/components/LoadingState';
 
 interface EventPost extends UpdatePost {
   expiresAt: string;
@@ -15,6 +16,7 @@ const initialPosts: EventPost[] = [
 const emptyForm = {
   title: '',
   description: '',
+  link: '',
   image: null as string | null,
   videoFile: null as File | null,
   isNew: true,
@@ -26,6 +28,7 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
   const [posts, setPosts] = useState<EventPost[]>(initialPosts);
   const [isLoading, setIsLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [downloadingPostId, setDownloadingPostId] = useState<string | null>(null);
@@ -135,6 +138,15 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
       showToast('Please enter an event description', 'warning');
       return;
     }
+    if (form.link.trim()) {
+      try {
+        const link = new URL(form.link.trim());
+        if (!['http:', 'https:'].includes(link.protocol)) throw new Error('Unsupported protocol');
+      } catch {
+        showToast('Please enter a valid link starting with http:// or https://', 'warning');
+        return;
+      }
+    }
     if (form.durationValue <= 0) {
       showToast('Please set a valid duration', 'warning');
       return;
@@ -148,6 +160,7 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
       id: `evt-${Date.now()}`,
       title: form.title.trim(),
       description: form.description.trim(),
+      link: form.link.trim() || null,
       image: form.image,
       mediaType: form.videoFile ? 'video' : form.image ? 'image' : null,
       isNew: form.isNew,
@@ -156,6 +169,7 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
       durationDays,
     };
 
+    setIsPublishing(true);
     void updatesService.create({ ...nextPost, mediaFile: form.videoFile })
       .then((savedPost) => {
         setPosts((current) => [{ ...savedPost, expiresAt: nextPost.expiresAt }, ...current]);
@@ -164,7 +178,8 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
         setFormOpen(false);
         showToast(`Event "${savedPost.title}" published successfully!`, 'success');
       })
-      .catch(() => showToast('Unable to save the event to the server', 'error'));
+      .catch(() => showToast('Unable to save the event to the server', 'error'))
+      .finally(() => setIsPublishing(false));
   };
 
   const toggleNewStatus = (postId: string) => {
@@ -245,8 +260,7 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
         </div>
       </div>
 
-      {isLoading ? <p className="text-sm text-neutral-500">Loading events...</p> : null}
-      <div className="grid gap-5 xl:grid-cols-4 lg:grid-cols-2">
+      {isLoading ? <CardGridLoadingState label="Loading events" count={4} className="grid gap-5 xl:grid-cols-4 lg:grid-cols-2" /> : <div className="grid gap-5 xl:grid-cols-4 lg:grid-cols-2">
         {filteredPosts.map((post) => (
           <article
             key={post.id}
@@ -320,6 +334,18 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
 
               <p className="text-sm leading-6 text-neutral-600">{post.description}</p>
 
+              {post.link ? (
+                <a
+                  href={post.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-100"
+                >
+                  <ExternalLink size={16} />
+                  Open event link
+                </a>
+              ) : null}
+
               <div className="mt-5 flex items-center justify-between gap-3 border-t border-neutral-100 pt-4">
                 <button
                   data-mutation-control
@@ -344,7 +370,7 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
             </div>
           </article>
         ))}
-      </div>
+      </div>}
 
       {formOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6 backdrop-blur-sm">
@@ -382,6 +408,21 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
                   placeholder="Write the event or update message here..."
                   className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
                 />
+              </label>
+
+              <label className="block space-y-2 text-sm font-medium text-neutral-700">
+                Link (optional)
+                <input
+                  type="url"
+                  value={form.link}
+                  onChange={(event) => setForm((current) => ({ ...current, link: event.target.value }))}
+                  placeholder="https://example.com/event"
+                  maxLength={2048}
+                  className="w-full rounded-2xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm outline-none transition focus:border-black"
+                />
+                <span className="block text-xs font-normal text-neutral-500">
+                  Add a website or registration link for viewers to open.
+                </span>
               </label>
 
               <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-4">
@@ -476,9 +517,10 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
               <button
                 data-mutation-control
                 onClick={publishPost}
-                className="rounded-3xl bg-black px-5 py-3 text-sm font-semibold text-white transition hover:bg-neutral-900"
+                disabled={isPublishing}
+                className="rounded-3xl bg-black px-5 py-3 text-sm font-semibold text-white transition hover:bg-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Publish Post
+                {isPublishing ? 'Publishing…' : 'Publish Post'}
               </button>
             </div>
           </div>

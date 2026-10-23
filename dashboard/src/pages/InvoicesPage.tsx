@@ -7,6 +7,7 @@ import logoImg from '@/assets/logo.jpeg';
 import invoicesService, { type Invoice as ServiceInvoice } from '@/services/invoices';
 import clientsService, { type Client as ServiceClient } from '@/services/clients';
 import { authService } from '@/services/auth';
+import { TableLoadingState } from '@/components/LoadingState';
 
 const companyProfile = {
   name: 'MAKEZY GROUP',
@@ -135,6 +136,7 @@ const getItemsTotal = (items: Invoice['items'], fallbackAmount = 0) =>
 
 export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
+  const [isLoadingInvoices, setIsLoadingInvoices] = useState(true);
   const [clients, setClients] = useState<Client[]>([]);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{ left: number; top: number } | null>(null);
@@ -147,7 +149,8 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
   useEffect(() => {
     void invoicesService.getAll()
       .then((loadedInvoices) => setInvoices(loadedInvoices.map(toPageInvoice)))
-      .catch(() => showToast('Unable to load invoices from the server', 'error'));
+      .catch(() => showToast('Unable to load invoices from the server', 'error'))
+      .finally(() => setIsLoadingInvoices(false));
   }, [showToast]);
 
   useEffect(() => {
@@ -569,7 +572,9 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
       </div>
 
       <div className="bg-white border border-neutral-200 rounded-xl overflow-hidden">
-        <div className="overflow-x-auto overflow-y-visible">
+        {isLoadingInvoices && invoices.length === 0 ? (
+          <TableLoadingState columns={7} label="Loading invoices" />
+        ) : <div className="overflow-x-auto overflow-y-visible">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-200 bg-neutral-50 text-left">
@@ -624,7 +629,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
               ))}
             </tbody>
           </table>
-        </div>
+        </div>}
       </div>
 
       <ConfirmDialog

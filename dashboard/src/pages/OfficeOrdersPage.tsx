@@ -6,6 +6,7 @@ import { notifySystem } from '@/utils/systemNotifications';
 import officeOrdersService from '@/services/officeOrders';
 import { useDepartments } from '@/utils/departments';
 import logoImg from '@/assets/logo.jpeg';
+import { CardGridLoadingState } from '@/components/LoadingState';
 
 interface OfficeOrder {
   id: string;
@@ -49,6 +50,7 @@ const escapeHtml = (value: string) => value
 
 export default function OfficeOrdersPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [orders, setOrders] = useState<OfficeOrder[]>(initialOrders);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(true);
   const [departments] = useDepartments();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
@@ -60,7 +62,8 @@ export default function OfficeOrdersPage({ searchQuery = '' }: { searchQuery?: s
   useEffect(() => {
     void officeOrdersService.getAll()
       .then((loaded) => setOrders(loaded.map((order) => ({ ...order, subject: order.item, description: order.notes, requester: order.requestedBy, date: order.requestDate, status: order.status === 'Received' ? 'Completed' : order.status === 'Rejected' ? 'Cancelled' : order.status === 'Approved' ? 'Confirmed' : order.status })) as OfficeOrder[]))
-      .catch(() => showToast('Unable to load office orders from the server', 'error'));
+      .catch(() => showToast('Unable to load office orders from the server', 'error'))
+      .finally(() => setIsLoadingOrders(false));
   }, [showToast]);
 
   const filteredOrders = useMemo(() => {
@@ -159,7 +162,7 @@ export default function OfficeOrdersPage({ searchQuery = '' }: { searchQuery?: s
         <p className="text-sm text-neutral-400 font-medium">{filteredOrders.length} office orders</p>
         <button data-mutation-control onClick={() => openForm('add')} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-black text-white text-sm font-medium hover:bg-neutral-800 transition-colors"><Plus size={16} /> New Office Order</button>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {isLoadingOrders ? <CardGridLoadingState label="Loading office orders" className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3" /> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredOrders.map((order) => (
           <div key={order.id} className="bg-white border border-neutral-200 rounded-xl p-5 hover:shadow-sm transition-all hover:-translate-y-0.5">
             <div className="flex items-start justify-between mb-4"><div className="min-w-0"><span className="text-xs font-semibold text-neutral-400 uppercase tracking-wider">{order.id}</span><h3 className="font-bold text-base mt-1 break-words">{order.subject}</h3><p className="text-sm text-neutral-500 font-medium mt-0.5">{order.department}</p></div><span className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-semibold ${statusStyles[order.status]}`}>{order.status}</span></div>
@@ -168,7 +171,7 @@ export default function OfficeOrdersPage({ searchQuery = '' }: { searchQuery?: s
             <div className="flex items-center justify-between mt-4 pt-4 border-t border-neutral-100"><button onClick={() => setViewOrder(order)} className="text-xs font-semibold text-black hover:underline">View details</button><div className="flex items-center gap-1"><button onClick={() => downloadOrder(order)} className="p-1.5 rounded-md text-neutral-500 hover:bg-neutral-100 transition-colors" title="Download office order" aria-label={`Download office order ${order.id}`}><Download size={16} /></button><button onClick={() => openForm('edit', order)} className="p-1.5 rounded-md text-neutral-500 hover:bg-neutral-100 transition-colors" title="Edit office order"><Edit3 size={16} /></button><button onClick={() => setPendingDeleteOrderId(order.id)} className="p-1.5 rounded-md text-red-500 hover:bg-red-50 transition-colors" title="Delete office order"><Trash2 size={16} /></button><button onClick={() => setViewOrder(order)} className="p-1.5 rounded-md hover:bg-neutral-100 transition-colors" title="View office order"><MoreHorizontal size={16} className="text-neutral-400" /></button></div></div>
           </div>
         ))}
-      </div>
+      </div>}
 
       <ConfirmDialog open={pendingDeleteOrderId !== null} title="Delete office order?" message="This office order will be permanently removed. Do you want to continue?" confirmText="Yes" cancelText="No" destructive onConfirm={() => { if (pendingDeleteOrderId) handleDelete(pendingDeleteOrderId); }} onCancel={() => setPendingDeleteOrderId(null)} />
 

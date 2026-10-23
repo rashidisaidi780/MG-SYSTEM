@@ -24,6 +24,8 @@ class ApiClient {
   private baseUrl: string;
   private timeout: number;
   private token: string | null = null;
+  private activeRequests = 0;
+  private requestSequence = 0;
 
   constructor(config: ApiConfig) {
     this.baseUrl = config.baseUrl;
@@ -107,9 +109,28 @@ class ApiClient {
     return data as T;
   }
 
+  private beginRequest(endpoint: string): () => void {
+    const requestId = `${++this.requestSequence}:${endpoint}`;
+    this.activeRequests += 1;
+    window.dispatchEvent(new CustomEvent('api-request-progress', {
+      detail: { activeRequests: this.activeRequests, requestId, phase: 'started' },
+    }));
+
+    let completed = false;
+    return () => {
+      if (completed) return;
+      completed = true;
+      this.activeRequests = Math.max(0, this.activeRequests - 1);
+      window.dispatchEvent(new CustomEvent('api-request-progress', {
+        detail: { activeRequests: this.activeRequests, requestId, phase: 'finished' },
+      }));
+    };
+  }
+
   async get<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const signal = AbortSignal.timeout(this.timeout);
+    const finishRequest = this.beginRequest(endpoint);
 
     try {
       const response = await fetch(url, {
@@ -119,16 +140,19 @@ class ApiClient {
         ...options,
       });
 
-      return this.handleResponse<T>(response);
+      return await this.handleResponse<T>(response);
     } catch (error) {
       this.handleError(error);
       throw error;
+    } finally {
+      finishRequest();
     }
   }
 
   async post<T>(endpoint: string, data?: unknown, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const signal = AbortSignal.timeout(this.timeout);
+    const finishRequest = this.beginRequest(endpoint);
 
     try {
       const response = await fetch(url, {
@@ -139,16 +163,18 @@ class ApiClient {
         ...options,
       });
 
-      return this.handleResponse<T>(response);
+      return await this.handleResponse<T>(response);
     } catch (error) {
       this.handleError(error);
       throw error;
+    } finally {
+      finishRequest();
     }
   }
 
   async postForm<T>(endpoint: string, data: FormData): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    const signal = AbortSignal.timeout(Math.max(this.timeout, 120000));
+    const finishRequest = this.beginRequest(endpoint);
     const headers: Record<string, string> = { Accept: 'application/json' };
 
     if (this.token) {
@@ -156,17 +182,59 @@ class ApiClient {
     }
 
     try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: data,
-        signal,
+      const response = await new Promise<Response>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', url);
+        xhr.timeout = Math.max(this.timeout, 120000);
+        Object.entries(headers).forEach(([name, value]) => xhr.setRequestHeader(name, value));
+
+        window.dispatchEvent(new CustomEvent('api-upload-progress', {
+          detail: { active: true, loaded: 0, total: 0, computable: false },
+        }));
+        xhr.upload.addEventListener('progress', (event) => {
+          window.dispatchEvent(new CustomEvent('api-upload-progress', {
+            detail: {
+              active: true,
+              loaded: event.loaded,
+              total: event.total,
+              computable: event.lengthComputable,
+            },
+          }));
+        });
+        xhr.addEventListener('load', () => {
+          if (xhr.status === 0) {
+            reject(new Error('The upload request did not receive a response.'));
+            return;
+          }
+
+          const responseHeaders = new Headers();
+          xhr.getAllResponseHeaders().trim().split(/[\r\n]+/).forEach((line) => {
+            const separator = line.indexOf(':');
+            if (separator > 0) {
+              responseHeaders.append(line.slice(0, separator).trim(), line.slice(separator + 1).trim());
+            }
+          });
+          resolve(new Response(xhr.responseText, {
+            status: xhr.status,
+            statusText: xhr.statusText,
+            headers: responseHeaders,
+          }));
+        });
+        xhr.addEventListener('error', () => reject(new Error('The upload failed due to a network error.')));
+        xhr.addEventListener('timeout', () => reject(new Error('The upload request timed out.')));
+        xhr.addEventListener('abort', () => reject(new Error('The upload request was aborted.')));
+        xhr.send(data);
       });
 
-      return this.handleResponse<T>(response);
+      return await this.handleResponse<T>(response);
     } catch (error) {
       this.handleError(error);
       throw error;
+    } finally {
+      window.dispatchEvent(new CustomEvent('api-upload-progress', {
+        detail: { active: false, loaded: 0, total: 0, computable: false },
+      }));
+      finishRequest();
     }
   }
 
@@ -174,6 +242,7 @@ class ApiClient {
     const url = `${this.baseUrl}${endpoint}`;
     const signal = AbortSignal.timeout(this.timeout);
     const headers: Record<string, string> = { Accept: '*/*' };
+    const finishRequest = this.beginRequest(endpoint);
 
     if (this.token) {
       headers.Authorization = `Bearer ${this.token}`;
@@ -186,16 +255,19 @@ class ApiClient {
         await this.handleResponse(response);
       }
 
-      return response.blob();
+      return await response.blob();
     } catch (error) {
       this.handleError(error);
       throw error;
+    } finally {
+      finishRequest();
     }
   }
 
   async put<T>(endpoint: string, data?: unknown, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const signal = AbortSignal.timeout(this.timeout);
+    const finishRequest = this.beginRequest(endpoint);
 
     try {
       const response = await fetch(url, {
@@ -206,16 +278,19 @@ class ApiClient {
         ...options,
       });
 
-      return this.handleResponse<T>(response);
+      return await this.handleResponse<T>(response);
     } catch (error) {
       this.handleError(error);
       throw error;
+    } finally {
+      finishRequest();
     }
   }
 
   async patch<T>(endpoint: string, data?: unknown, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const signal = AbortSignal.timeout(this.timeout);
+    const finishRequest = this.beginRequest(endpoint);
 
     try {
       const response = await fetch(url, {
@@ -226,16 +301,19 @@ class ApiClient {
         ...options,
       });
 
-      return this.handleResponse<T>(response);
+      return await this.handleResponse<T>(response);
     } catch (error) {
       this.handleError(error);
       throw error;
+    } finally {
+      finishRequest();
     }
   }
 
   async delete<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const signal = AbortSignal.timeout(this.timeout);
+    const finishRequest = this.beginRequest(endpoint);
 
     try {
       const response = await fetch(url, {
@@ -245,10 +323,12 @@ class ApiClient {
         ...options,
       });
 
-      return this.handleResponse<T>(response);
+      return await this.handleResponse<T>(response);
     } catch (error) {
       this.handleError(error);
       throw error;
+    } finally {
+      finishRequest();
     }
   }
 

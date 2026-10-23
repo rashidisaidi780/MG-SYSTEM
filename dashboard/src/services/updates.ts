@@ -5,6 +5,7 @@ export interface UpdatePost {
   title: string;
   description: string;
   image: string | null;
+  link: string | null;
   isNew: boolean;
   createdAt: string;
   durationDays: number;
@@ -18,6 +19,7 @@ interface UpdateApiRecord {
   update_title: string;
   update_description: string;
   update_image: string | null;
+  update_link: string | null;
   update_date: string;
   update_duration: number | null;
   update_status: string;
@@ -33,6 +35,7 @@ const toUpdate = (record: UpdateApiRecord): UpdatePost => ({
   id: String(record.id),
   title: record.update_title,
   description: record.update_description,
+  link: record.update_link,
   image: record.update_image?.startsWith('events/')
     ? `/updates/${record.id}/media`
     : record.update_image,
@@ -59,6 +62,7 @@ class UpdatesService {
     formData.set('update_title', data.title);
     formData.set('update_description', data.description);
     formData.set('update_image', data.image || '');
+    formData.set('update_link', data.link || '');
     formData.set('update_date', new Date().toISOString().slice(0, 10));
     formData.set('update_duration', String(data.durationDays));
     formData.set('is_new', data.isNew ? '1' : '0');

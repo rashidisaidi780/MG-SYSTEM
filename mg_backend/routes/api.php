@@ -14,6 +14,7 @@ use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\UpdateController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkerController;
+use App\Http\Controllers\WorkerDocumentController;
 use Illuminate\Support\Facades\Route;
 
 // Public authentication routes (no token required)
@@ -48,7 +49,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('permission:Clients')->apiResource('clients', ClientController::class);
     Route::middleware('permission:Users')->apiResource('users', UserController::class);
     Route::middleware('permission:Departments')->apiResource('departments', DepartmentController::class);
-    Route::middleware('permission:Workers')->apiResource('workers', WorkerController::class);
+    Route::middleware('permission:Workers')->group(function () {
+        Route::get('/workers/{worker}/documents', [WorkerDocumentController::class, 'index']);
+        Route::post('/workers/{worker}/documents', [WorkerDocumentController::class, 'store']);
+        Route::get('/workers/{worker}/documents/{document}', [WorkerDocumentController::class, 'download']);
+        Route::delete('/workers/{worker}/documents/{document}', [WorkerDocumentController::class, 'destroy']);
+        Route::apiResource('workers', WorkerController::class);
+    });
     Route::middleware('permission:Booking Orders')->apiResource('bookings', BookingController::class);
     Route::middleware('permission:Invoices')->apiResource('invoices', InvoiceController::class);
     Route::get('/updates', [UpdateController::class, 'index']);

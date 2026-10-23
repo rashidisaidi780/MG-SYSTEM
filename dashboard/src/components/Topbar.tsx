@@ -63,8 +63,10 @@ export default function Topbar({ title, subtitle, onNavigate, onRefresh, isLoadi
         <button
           type="button"
           onClick={() => (onRefresh ? onRefresh() : window.location.reload())}
-          className="p-2 rounded-lg hover:bg-neutral-100 transition-colors"
+          disabled={isLoading}
+          className="p-2 rounded-lg hover:bg-neutral-100 transition-colors disabled:cursor-wait disabled:opacity-60"
           aria-label="Refresh page"
+          title={isLoading ? 'Waiting for page data to load' : 'Refresh page data'}
         >
           <RefreshCcw
             size={18}

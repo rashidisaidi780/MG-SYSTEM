@@ -6,6 +6,7 @@ import { notifySystem } from '@/utils/systemNotifications';
 import bookingsService from '@/services/bookings';
 import clientsService from '@/services/clients';
 import logoImg from '@/assets/logo.jpeg';
+import { CardGridLoadingState } from '@/components/LoadingState';
 
 interface ClientOption {
   id: string;
@@ -63,6 +64,7 @@ const escapeHtml = (value: string) => value
 export default function BookingsPage({ searchQuery = '' }: { searchQuery?: string }) {
   const [bookings, setBookings] = useState<Booking[]>(initialBookings);
   const [clients, setClients] = useState<ClientOption[]>([]);
+  const [isLoadingBookings, setIsLoadingBookings] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<'add' | 'edit'>('add');
   const [formBooking, setFormBooking] = useState<Booking>(emptyBooking);
@@ -73,7 +75,8 @@ export default function BookingsPage({ searchQuery = '' }: { searchQuery?: strin
   useEffect(() => {
     void bookingsService.getAll()
       .then((loaded) => setBookings(loaded.map((booking) => ({ ...booking, assignee: booking.assignee ?? '', status: booking.status === 'Canceled' ? 'Cancelled' : booking.status }))))
-      .catch(() => showToast('Unable to load bookings from the server', 'error'));
+      .catch(() => showToast('Unable to load bookings from the server', 'error'))
+      .finally(() => setIsLoadingBookings(false));
   }, [showToast]);
 
   useEffect(() => {
@@ -192,7 +195,7 @@ export default function BookingsPage({ searchQuery = '' }: { searchQuery?: strin
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {isLoadingBookings ? <CardGridLoadingState label="Loading bookings" className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3" /> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredBookings.map((b) => (
           <div
             key={b.id}
@@ -241,7 +244,7 @@ export default function BookingsPage({ searchQuery = '' }: { searchQuery?: strin
             </div>
           </div>
         ))}
-      </div>
+      </div>}
 
       <ConfirmDialog
         open={pendingDeleteBookingId !== null}

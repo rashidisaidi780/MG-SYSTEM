@@ -14,6 +14,7 @@ class Update extends Model
         'update_title',
         'update_description',
         'update_image',
+        'update_link',
         'update_date',
         'update_duration',
         'update_status',

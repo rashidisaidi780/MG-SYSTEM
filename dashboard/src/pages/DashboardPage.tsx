@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { FileText, FolderKanban, Users, ClipboardList, Activity, AlertTriangle } from 'lucide-react';
 import { SYSTEM_ACTIVITIES_STORAGE_KEY, type SystemActivity } from '@/utils/systemNotifications';
 import { dashboardService, type DashboardSummary } from '@/services/dashboard';
+import { TableLoadingState } from '@/components/LoadingState';
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -79,14 +80,15 @@ export default function DashboardPage() {
           </button>
         </div>
       ) : null}
-      {isLoading && !summary ? <p role="status" className="text-sm text-neutral-500">Loading dashboard…</p> : null}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         {stats.map(({ label, value, icon: Icon }) => (
           <div key={label} className="rounded-xl border border-neutral-200 bg-white p-5">
             <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-neutral-100">
               <Icon size={18} />
             </div>
-            <p className="text-2xl font-bold">{value}</p>
+            {isLoading && !summary
+              ? <div role="status" aria-label={`Loading ${label.toLowerCase()} count`} className="mt-2 h-8 w-20 animate-pulse rounded bg-neutral-100" />
+              : <p className="text-2xl font-bold">{value}</p>}
             <p className="mt-1 text-sm font-medium text-neutral-400">{label}</p>
           </div>
         ))}
@@ -114,7 +116,9 @@ export default function DashboardPage() {
             <AlertTriangle size={18} />
             <h2 className="text-lg font-semibold">Expired or due in 30 days</h2>
           </div>
-          {expiringItems.length ? (
+          {isLoading && !summary ? (
+            <TableLoadingState columns={3} rows={4} label="Loading upcoming deadlines" />
+          ) : expiringItems.length ? (
             <div className={isExpiringListScrollable ? 'max-h-[18rem] overflow-y-auto overflow-x-auto' : 'overflow-x-auto'}>
               <table className="w-full text-left text-sm">
                 <thead className={isExpiringListScrollable ? 'sticky top-0 z-10 bg-white' : ''}><tr className="border-b border-neutral-200 text-xs uppercase tracking-wide text-neutral-400"><th className="pb-3 pr-3">Type</th><th className="pb-3 pr-3">Description</th><th className="pb-3">Due date</th></tr></thead>
