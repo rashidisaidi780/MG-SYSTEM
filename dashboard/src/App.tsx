@@ -51,6 +51,35 @@ const pageMeta: Record<PageId, { title: string; subtitle: string }> = {
   officeOrders: { title: 'Office Orders', subtitle: 'Manage internal office orders' },
 };
 
+const preloadablePages: Array<{ id: PageId; permission?: string }> = [
+  { id: 'dashboard' },
+  { id: 'events' },
+  { id: 'notifications', permission: 'Notifications' },
+  { id: 'projects', permission: 'Projects' },
+  { id: 'clients', permission: 'Clients' },
+  { id: 'contracts', permission: 'Contracts' },
+  { id: 'users', permission: 'Users' },
+  { id: 'departments', permission: 'Departments' },
+  { id: 'workers', permission: 'Workers' },
+  { id: 'invoices', permission: 'Invoices' },
+  { id: 'bookings', permission: 'Booking Orders' },
+  { id: 'officeOrders', permission: 'Office Orders' },
+];
+
+const userCanViewPage = (user: StoredUser | null, permission?: string) => {
+  if (!permission) return true;
+  if (user?.role === 'Admin') return true;
+  if (Array.isArray(user?.permissions)) {
+    return user.permissions.includes('*') || user.permissions.includes(permission);
+  }
+
+  return ['View', 'Edit', 'Both'].includes(user?.permissions?.[permission] || 'None');
+};
+
+const getPreloadedPages = (user: StoredUser | null = authService.getStoredUser()) => preloadablePages
+  .filter(({ permission }) => userCanViewPage(user, permission))
+  .map(({ id }) => id);
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState<StoredUser | null>(() => authService.getStoredUser());
   const [page, setPage] = useState<PageId>(() => authService.isAuthenticated() ? 'dashboard' : 'signin');
@@ -58,6 +87,7 @@ export default function App() {
   const [visitedPages, setVisitedPages] = useState<PageId[]>(() => (
     authService.isAuthenticated() ? ['dashboard'] : []
   ));
+  const [isPreloadingPages, setIsPreloadingPages] = useState(false);
   const [pageRefreshKeys, setPageRefreshKeys] = useState<Partial<Record<PageId, number>>>({});
   const refreshInProgress = useRef(false);
   const refreshRequestIds = useRef(new Set<string>());
@@ -233,6 +263,87 @@ export default function App() {
     };
   }, [currentUser]);
 
+  useEffect(() => {
+    if (!currentUser) {
+      setIsPreloadingPages(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    let cancelCurrentPageWait: (() => void) | null = null;
+
+    const preloadPage = (pageId: PageId) => new Promise<void>((resolve) => {
+      const requestIds = new Set<string>();
+      let sawRequest = false;
+      let settled = false;
+      let mountTimer = 0;
+      let quietTimer = 0;
+      let timeoutTimer = 0;
+
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(mountTimer);
+        window.clearTimeout(quietTimer);
+        window.clearTimeout(timeoutTimer);
+        window.removeEventListener('api-request-progress', handleRequestProgress);
+        cancelCurrentPageWait = null;
+        resolve();
+      };
+
+      const settleWhenQuiet = () => {
+        window.clearTimeout(quietTimer);
+        quietTimer = window.setTimeout(finish, 150);
+      };
+
+      const handleRequestProgress = (event: Event) => {
+        const { requestId, phase } = (event as CustomEvent<{
+          requestId?: string;
+          phase?: 'started' | 'finished';
+        }>).detail;
+
+        if (!requestId) return;
+        if (phase === 'started') {
+          sawRequest = true;
+          requestIds.add(requestId);
+          window.clearTimeout(quietTimer);
+        } else if (phase === 'finished') {
+          requestIds.delete(requestId);
+          if (sawRequest && requestIds.size === 0) settleWhenQuiet();
+        }
+      };
+
+      window.addEventListener('api-request-progress', handleRequestProgress);
+      cancelCurrentPageWait = finish;
+      setVisitedPages((current) => current.includes(pageId) ? current : [...current, pageId]);
+
+      mountTimer = window.setTimeout(() => {
+        if (!sawRequest) finish();
+        else if (requestIds.size === 0) settleWhenQuiet();
+      }, 300);
+      timeoutTimer = window.setTimeout(finish, 35000);
+    });
+
+    const preloadPages = async () => {
+      setIsPreloadingPages(true);
+      const pages = getPreloadedPages(currentUser).filter((pageId) => pageId !== 'dashboard');
+
+      for (const pageId of pages) {
+        if (cancelled) break;
+        await preloadPage(pageId);
+      }
+
+      if (!cancelled) setIsPreloadingPages(false);
+    };
+
+    void preloadPages();
+
+    return () => {
+      cancelled = true;
+      cancelCurrentPageWait?.();
+    };
+  }, [currentUser]);
+
   const handleSignIn = (user: AuthUser) => {
     setCurrentUser(user);
     setVisitedPages(['dashboard']);
@@ -355,6 +466,11 @@ export default function App() {
               setMobileMenuOpen((isOpen) => !isOpen);
             }
           }} />
+          {isPreloadingPages ? (
+            <div role="status" className="border-b border-neutral-200 bg-neutral-50 px-6 py-2 text-sm text-neutral-600">
+              Preparing your workspace data in the background…
+            </div>
+          ) : null}
           {visitedPages.map((visitedPage) => (
             <div
               key={visitedPage}
