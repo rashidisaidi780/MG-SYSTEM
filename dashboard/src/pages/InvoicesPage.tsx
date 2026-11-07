@@ -8,6 +8,8 @@ import invoicesService, { type Invoice as ServiceInvoice } from '@/services/invo
 import clientsService, { type Client as ServiceClient } from '@/services/clients';
 import { authService } from '@/services/auth';
 import { TableLoadingState } from '@/components/LoadingState';
+import JsBarcode from 'jsbarcode';
+import QRCode from 'qrcode';
 
 const companyProfile = {
   name: 'MAKEZY GROUP',
@@ -246,7 +248,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
     setOpenMenu(null);
   };
 
-  const handleDownload = (id: string) => {
+  const handleDownload = async (id: string) => {
     const inv = invoices.find((i) => i.id === id);
     if (!inv) return;
     const items = inv.items?.length ? inv.items : [{ desc: 'Services', quantity: 1, amount: Number(inv.amount.replace(/[^0-9.-]+/g, '')) || 0 }];
@@ -256,6 +258,28 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
       showToast('Please allow pop-ups to download the invoice as a PDF.', 'warning');
       return;
     }
+
+    setOpenMenu(null);
+    try {
+      const originalCopyUrl = await invoicesService.getOriginalCopyUrl(inv.id);
+      const qrCode = await QRCode.toDataURL(originalCopyUrl, {
+        errorCorrectionLevel: 'M',
+        margin: 1,
+        width: 144,
+      });
+      const barcodeElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      barcodeElement.setAttribute('class', 'invoice-barcode');
+      JsBarcode(barcodeElement, inv.id, {
+        format: 'CODE128',
+        lineColor: '#171717',
+        background: '#ffffff',
+        width: 1.5,
+        height: 34,
+        displayValue: true,
+        fontSize: 10,
+        margin: 2,
+      });
+      const barcode = new XMLSerializer().serializeToString(barcodeElement);
 
     invoiceWindow.document.write(`<!doctype html>
       <html><head><title>${escapeHtml(inv.id)} - Invoice</title>
@@ -278,6 +302,7 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
         .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 14mm; padding: 7mm 0 6mm; }
         .label { margin-bottom: 3px; color: #737373; font-size: 8px; letter-spacing: 1.2px; text-transform: uppercase; }
         .value { font-size: 11px; line-height: 1.4; }
+        .invoice-barcode { display: block; width: 64mm; max-width: 100%; height: auto; margin-top: 3mm; }
         table { width: 100%; border-collapse: collapse; margin-top: 2mm; }
         th { padding: 7px 10px; color: #737373; background: #f5f5f5; font-size: 8px; letter-spacing: 1px; text-align: left; text-transform: uppercase; }
         td { padding: 8px 10px; border-bottom: 1px solid #e5e5e5; font-size: 10px; }
@@ -294,6 +319,9 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
         .approval-box { min-height: 25mm; }
         .approval-title { margin: 0 0 15mm; font-size: 9px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
         .signature-line { width: 100%; padding-top: 4px; border-top: 1px solid #171717; font-size: 8px; color: #737373; }
+        .qr-verification { display: flex; align-items: center; gap: 3mm; margin-top: 3mm; }
+        .qr-verification img { width: 24mm; height: 24mm; image-rendering: pixelated; }
+        .qr-verification p { max-width: 38mm; margin: 0; color: #525252; font-size: 8px; line-height: 1.4; }
         .stamp-area { height: 22mm; border: 1px dashed #a3a3a3; display: flex; align-items: center; justify-content: center; color: #a3a3a3; font-size: 8px; text-transform: uppercase; letter-spacing: 1px; }
         .footer { position: absolute; bottom: 11mm; left: 14mm; right: 14mm; display: flex; justify-content: space-between; padding-top: 6px; border-top: 1px solid #e5e5e5; font-size: 8px; color: #737373; }
         @media print { body { background: #fff; } .page { margin: 0; } }
@@ -306,13 +334,13 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
           </header>
           <section class="meta">
             <div><div class="label">Billed to</div><div class="value"><strong>${escapeHtml(inv.company || inv.client)}</strong><br>${escapeHtml(inv.client)}<br>${escapeHtml(inv.address || '')}<br>${escapeHtml(inv.country || '')}<br>${escapeHtml(inv.email || '')} &nbsp; ${escapeHtml(inv.phone || '')}<br>TIN: ${escapeHtml(inv.tin || 'Not provided')}</div></div>
-            <div><div class="label">Invoice details</div><div class="value">Issue date: <strong>${escapeHtml(inv.date)}</strong><br>Due date: <strong>${escapeHtml(inv.due)}</strong><br>Payment status: <strong>${escapeHtml(inv.status)}</strong></div></div>
+            <div><div class="label">Invoice details</div><div class="value">Issue date: <strong>${escapeHtml(inv.date)}</strong><br>Due date: <strong>${escapeHtml(inv.due)}</strong><br>Payment status: <strong>${escapeHtml(inv.status)}</strong></div>${barcode}</div>
           </section>
           <table><thead><tr><th>Description</th><th>Quantity</th><th>Unit price</th><th>Amount</th></tr></thead><tbody>${items.map((item) => `<tr><td>${escapeHtml(item.desc || 'Service')}</td><td>${item.quantity}</td><td>${formatCurrency(item.amount)}</td><td>${formatCurrency(item.quantity * item.amount)}</td></tr>`).join('')}</tbody></table>
           <div class="total"><div class="total-box"><div class="total-row"><span>Subtotal</span><span>${formatCurrency(itemsTotal)}</span></div><div class="total-row grand-total"><span>Total: </span><span>${formatCurrency(itemsTotal)}</span></div></div></div>
           <section class="details"><div class="detail-box"><h2>Company details</h2><p>${escapeHtml(companyProfile.email)}</p><p>${escapeHtml(companyProfile.phone)} &nbsp; | &nbsp; ${escapeHtml(companyProfile.website)}</p><p>${escapeHtml(companyProfile.location)}</p><p>${escapeHtml(companyProfile.poBox)}</p><p><strong>TIN:</strong> ${escapeHtml(companyProfile.tin)}</p></div><div class="detail-box"><h2>Bank details</h2><p><strong>Bank:</strong> ${escapeHtml(companyProfile.bankName)}</p><p><strong>Account name:</strong> ${escapeHtml(companyProfile.bankAccountName)}</p><p><strong>Account number:</strong> ${escapeHtml(companyProfile.bankAccountNumber)}</p><p><strong>Branch:</strong> ${escapeHtml(companyProfile.bankBranch)}</p></div></section>
           ${inv.notes ? `<p class="small muted" style="margin: 6mm 0 0"><strong>Notes:</strong> ${escapeHtml(inv.notes).replace(/\n/g, '<br>')}</p>` : ''}
-          <section class="approval"><div class="approval-box"><p class="approval-title">Authorized signature</p><div class="signature-line">Name and signature</div></div><div class="approval-box"><p class="approval-title">Company stamp</p><div class="stamp-area">Stamp</div></div></section>
+          <section class="approval"><div class="approval-box"><p class="approval-title">Authorized signature</p><div class="signature-line">Name and signature</div><div class="qr-verification"><img src="${qrCode}" alt="Scan to view the verified original invoice" /><p>Scan to view the verified original invoice.</p></div></div><div class="approval-box"><p class="approval-title">Company stamp</p><div class="stamp-area">Stamp</div></div></section>
         </div><footer class="footer"><span>Thank you for your business.</span><span>${escapeHtml(companyProfile.website)}</span></footer>
       </main><script>
         const printInvoice = () => { window.focus(); window.print(); };
@@ -323,9 +351,13 @@ export default function InvoicesPage({ searchQuery = '' }: { searchQuery?: strin
           window.setTimeout(printInvoice, 1000);
         }
       </script></body></html>`);
-    invoiceWindow.document.close();
-    setOpenMenu(null);
-    showToast(`${inv.id} opened for PDF download`, 'success');
+      invoiceWindow.document.close();
+      showToast(`${inv.id} opened for PDF download`, 'success');
+    } catch (error) {
+      invoiceWindow.close();
+      console.error('Unable to prepare the invoice barcode and QR code', error);
+      showToast('Unable to prepare the original-copy QR code. Please try again.', 'error');
+    }
   };
 
   const handleDownloadQuotation = (id: string) => {

@@ -16,3 +16,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get('/invoices/{invoice}/original-copy', [\App\Http\Controllers\InvoiceController::class, 'originalCopy'])
+    ->middleware('signed')
+    ->name('invoices.original-copy');

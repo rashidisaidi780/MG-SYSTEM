@@ -57,7 +57,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('workers', WorkerController::class);
     });
     Route::middleware('permission:Booking Orders')->apiResource('bookings', BookingController::class);
-    Route::middleware('permission:Invoices')->apiResource('invoices', InvoiceController::class);
+    Route::middleware('permission:Invoices')->group(function () {
+        Route::get('/invoices/{invoice}/original-link', [InvoiceController::class, 'originalCopyLink']);
+        Route::apiResource('invoices', InvoiceController::class);
+    });
     Route::get('/updates', [UpdateController::class, 'index']);
     Route::get('/updates/{id}/media', [UpdateController::class, 'media']);
     Route::get('/updates/{id}', [UpdateController::class, 'show']);

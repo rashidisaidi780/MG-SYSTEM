@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Invoice;
+use Illuminate\Support\Facades\URL;
 
 class InvoiceController extends Controller
 {
@@ -75,6 +76,38 @@ class InvoiceController extends Controller
             'success' => true,
             'data' => $invoice
         ]);
+    }
+
+    public function originalCopyLink(string $invoiceId)
+    {
+        $invoice = Invoice::where('invoice_id', $invoiceId)->first();
+
+        if (!$invoice) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invoice not found'
+            ], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'url' => URL::signedRoute('invoices.original-copy', [
+                    'invoice' => $invoice->invoice_id,
+                ]),
+            ],
+        ]);
+    }
+
+    public function originalCopy(string $invoiceId)
+    {
+        $invoice = Invoice::with('client')->where('invoice_id', $invoiceId)->first();
+
+        if (!$invoice) {
+            abort(404);
+        }
+
+        return view('invoices.original-copy', compact('invoice'));
     }
 
     // Update invoice

@@ -159,6 +159,13 @@ class InvoicesService {
     if (!response.ok) throw new Error('Failed to export PDF');
     return response.blob();
   }
+
+  async getOriginalCopyUrl(id: string): Promise<string> {
+    const response = await apiClient.get<{ data: { url: string } }>(
+      `/invoices/${encodeURIComponent(id)}/original-link`,
+    );
+    return response.data.url;
+  }
 }
 
 const toInvoice = (invoice: InvoiceApiRecord): Invoice => ({
