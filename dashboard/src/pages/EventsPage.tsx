@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
-import { Download, ExternalLink, ImagePlus, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { Download, ExternalLink, ImagePlus, Maximize2, Play, Plus, Trash2, X } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { notifySystem } from '@/utils/systemNotifications';
 import updatesService, { type UpdatePost } from '@/services/updates';
@@ -32,8 +32,16 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
   const [form, setForm] = useState(emptyForm);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const [downloadingPostId, setDownloadingPostId] = useState<string | null>(null);
+  const [openingVideoPostId, setOpeningVideoPostId] = useState<string | null>(null);
+  const [playingVideo, setPlayingVideo] = useState<{ postId: string; url: string } | null>(null);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const videoElement = useRef<HTMLVideoElement>(null);
   const { showToast } = useToast();
+
+  useEffect(() => {
+    if (!playingVideo) return;
+    return () => URL.revokeObjectURL(playingVideo.url);
+  }, [playingVideo]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setCurrentTime(Date.now()), 60000);
@@ -229,6 +237,33 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
     }
   };
 
+  const openVideo = async (post: EventPost) => {
+    setOpeningVideoPostId(post.id);
+    try {
+      const blob = await updatesService.getMedia(post.id);
+      setPlayingVideo({ postId: post.id, url: URL.createObjectURL(blob) });
+    } catch {
+      showToast('Unable to open this event video', 'error');
+    } finally {
+      setOpeningVideoPostId(null);
+    }
+  };
+
+  const toggleVideoFullscreen = async () => {
+    const video = videoElement.current;
+    if (!video) return;
+
+    try {
+      if (document.fullscreenElement === video) {
+        await document.exitFullscreen();
+      } else {
+        await video.requestFullscreen();
+      }
+    } catch {
+      showToast('Unable to open the video in fullscreen', 'error');
+    }
+  };
+
   return (
     <div className="p-8 animate-fade-in">
       <div className="flex items-center justify-between gap-4 mb-6">
@@ -270,15 +305,26 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
               <div className="flex h-52 items-center justify-center bg-neutral-100">
                 <div className="flex flex-col items-center gap-2 text-neutral-500">
                   <span className="text-sm font-semibold">Video event</span>
-                  <button
-                    type="button"
-                    onClick={() => void downloadVideo(post)}
-                    disabled={downloadingPostId === post.id}
-                    className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-800 shadow-sm transition hover:bg-neutral-50 disabled:opacity-50"
-                  >
-                    <Download size={16} />
-                    {downloadingPostId === post.id ? 'Downloading...' : 'Download video'}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void openVideo(post)}
+                      disabled={openingVideoPostId !== null}
+                      className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-800 shadow-sm transition hover:bg-neutral-50 disabled:opacity-50"
+                    >
+                      <Play size={16} />
+                      {openingVideoPostId === post.id ? 'Opening...' : 'Open video'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void downloadVideo(post)}
+                      disabled={downloadingPostId === post.id}
+                      className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-800 shadow-sm transition hover:bg-neutral-50 disabled:opacity-50"
+                    >
+                      <Download size={16} />
+                      {downloadingPostId === post.id ? 'Downloading...' : 'Download'}
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : post.image ? (
@@ -371,6 +417,57 @@ export default function EventsPage({ searchQuery = '' }: { searchQuery?: string 
           </article>
         ))}
       </div>}
+
+      {playingVideo && (
+        <div
+          role="presentation"
+          onClick={() => setPlayingVideo(null)}
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="event-video-title"
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-6xl overflow-hidden rounded-2xl bg-neutral-950 shadow-2xl"
+          >
+            <header className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4 text-white">
+              <h2 id="event-video-title" className="truncate text-lg font-semibold">
+                {posts.find((post) => post.id === playingVideo.postId)?.title ?? 'Event video'}
+              </h2>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void toggleVideoFullscreen()}
+                  aria-label="View video fullscreen"
+                  title="View fullscreen"
+                  className="rounded-lg p-2 text-white/80 transition hover:bg-white/10 hover:text-white"
+                >
+                  <Maximize2 size={20} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPlayingVideo(null)}
+                  aria-label="Close video"
+                  title="Close video"
+                  className="rounded-lg p-2 text-white/80 transition hover:bg-white/10 hover:text-white"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </header>
+            <video
+              ref={videoElement}
+              src={playingVideo.url}
+              controls
+              autoPlay
+              playsInline
+              aria-label="Event video player"
+              className="block max-h-[80vh] min-h-64 w-full bg-black object-contain"
+            />
+          </section>
+        </div>
+      )}
 
       {formOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6 backdrop-blur-sm">

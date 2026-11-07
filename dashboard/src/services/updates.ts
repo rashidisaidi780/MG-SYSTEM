@@ -87,6 +87,10 @@ class UpdatesService {
   async downloadMedia(id: string): Promise<Blob> {
     return apiClient.download(`/updates/${id}/media?download=1`);
   }
+
+  async getMedia(id: string): Promise<Blob> {
+    return apiClient.download(`/updates/${id}/media`);
+  }
 }
 
 export const updatesService = new UpdatesService();
